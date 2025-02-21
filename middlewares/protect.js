@@ -1,0 +1,32 @@
+require("dotenv").config();
+const jwt = require("jsonwebtoken");
+const CustomError = require("../utilsFunction/customError");
+
+exports.protect = async (req, res, next) => {
+  try {
+    // extract the token from request cookies
+
+    const { token } = req.cookies;
+    // if token is not there, return 401 response
+    if (!token) {
+      return next(new CustomError("Token not found", 401));
+    }
+
+    // verifies the token
+    const decodedInfo = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+    // checks if decoded info contains legit details, then set that info in req.user and calls next
+    req.user = decodedInfo;
+    next();
+
+    // if token is invalid then sends the response accordingly
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return next(new CustomError("Token expired, please login again", 401));
+    } else if (error instanceof jwt.JsonWebTokenError) {
+      return next(new CustomError("Invalid Token, please login again", 401));
+    } else {
+      return next(new CustomError("Internal Server Error", 500));
+    }
+  }
+};
