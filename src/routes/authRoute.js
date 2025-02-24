@@ -46,7 +46,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
   res.cookie("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production", // Use secure cookie in production
-    maxAge: 3600000, // 1 hour
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
   // Redirect to a protected route after login

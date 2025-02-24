@@ -41,7 +41,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.ORIGIN,
+    origin: process.env.CLIENT_URL,
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
     methods: ["GET", "POST", "PATCH", "DELETE"],
@@ -128,7 +128,7 @@ server.listen(PORT, () => {
 // Create the Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: process.env.ORIGIN,
+    origin: process.env.CLIENT_URL,
     credentials: true,
   },
 });
