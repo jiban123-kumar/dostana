@@ -52,7 +52,7 @@ app.use(
 // Session configuration
 app.use(
   session({
-    secret: process.env.SESSION_SECRET
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
@@ -61,7 +61,6 @@ app.use(
     }),
   })
 );
-
 
 // Initialize Passport and Google OAuth strategy
 googleOauthStartegy();
