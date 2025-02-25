@@ -190,8 +190,6 @@ const logoutUser = catchAsync(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    path: "/",
-    domain: `https://${process.env.CLIENT_URL}`,
   });
   // Adjust the cookie name if different
   res.status(200).json({ message: "Logout successful" });

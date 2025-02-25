@@ -11,8 +11,6 @@ const cookieGenerator = (res, token) => {
     maxAge,
     httpOnly: true,
     secure: isProduction,
-    path: "/",
-    domain: `https://${process.env.CLIENT_URL}`,
   });
 };
 
