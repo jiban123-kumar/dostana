@@ -36,13 +36,9 @@ module.exports = (socket, io) => {
         console.error("Error updating user status on connection:", error);
       }
     })();
-  } else {
-    console.log("No user data provided in handshake auth");
   }
-
   // When the socket disconnects, update the user status to offline and notify friends.
   socket.on("disconnect", async (reason) => {
-    console.log("Socket disconnected:", socket.id, reason);
     if (userId) {
       try {
         const userStatus = await UserStatus.findOneAndUpdate({ user: userId }, { isOnline: false, lastSeen: new Date() }, { new: true });

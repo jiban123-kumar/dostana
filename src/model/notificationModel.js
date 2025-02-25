@@ -9,7 +9,7 @@ const notificationDetailSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["friend_request_sent", "friend_request_accepted", "content-reaction", "profile", "message", "content-share", "content-comment"],
+      enum: ["friend_request_sent", "friend_request_accepted", "content-reaction", "content-share", "content-comment"],
       required: true,
     },
     referenceId: {

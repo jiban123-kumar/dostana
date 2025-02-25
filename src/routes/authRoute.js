@@ -50,7 +50,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
   });
 
   // Redirect to a protected route after login
-  res.redirect(`${process.env.CLIENT_REDIRECT_URL}/home`);
+  res.redirect(`${process.env.CLIENT_URL}/home`);
 });
 
 module.exports = router;
