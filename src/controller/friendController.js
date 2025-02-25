@@ -226,11 +226,13 @@ const getSuggestedUsers = catchAsync(async (req, res, next) => {
   const limit = parseInt(req.query.limit, 10) || 10;
   const skip = (page - 1) * limit;
 
-  // Query for users not already friends or in pending received requests
+  // Query for users not already friends, not in pending received requests,
+  // and whose profile is complete
   const suggestedUsersQuery = User.find({
     _id: { $nin: [...friendIds, ...receivedRequests, userId] },
+    isProfileComplete: true,
   })
-    .select("firstName lastName profileImage")
+    .select("firstName lastName profileImage isProfileComplete")
     .skip(skip)
     .limit(limit);
 
@@ -242,12 +244,14 @@ const getSuggestedUsers = catchAsync(async (req, res, next) => {
     firstName: user.firstName,
     lastName: user.lastName,
     profileImage: user.profileImage,
+    isProfileComplete: user.isProfileComplete,
     status: sentRequests.has(user._id.toString()) ? "pending" : "none",
   }));
 
   // Optionally, count the total to determine if more pages exist:
   const total = await User.countDocuments({
     _id: { $nin: [...friendIds, ...receivedRequests, userId] },
+    isProfileComplete: true,
   });
   const hasNextPage = page * limit < total;
 
