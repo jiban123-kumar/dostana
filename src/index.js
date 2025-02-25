@@ -42,7 +42,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: `http://${process.env.CLIENT_URL}`,
+    origin: `https://${process.env.CLIENT_URL}`,
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
     methods: ["GET", "POST", "PATCH", "DELETE"],
