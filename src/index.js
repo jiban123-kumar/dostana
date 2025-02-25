@@ -42,7 +42,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: `http://${process.env.CLIENT_URL}`,
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
     methods: ["GET", "POST", "PATCH", "DELETE"],
@@ -126,14 +126,12 @@ mongoose
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => {});
 
 // Create the Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: `https://${process.env.CLIENT_URL}`,
     credentials: true,
   },
   pingTimeout: 60000,
