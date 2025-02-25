@@ -33,7 +33,7 @@ router.delete("/account", protect, deleteAccount);
 
 router.delete("/accounts", deleteAllAccounts);
 
-router.post("/logout", protect, logoutUser);
+router.post("/logout", logoutUser);
 
 // Google OAuth routes
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
