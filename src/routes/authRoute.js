@@ -37,7 +37,7 @@ router.post("/logout", protect, logoutUser);
 // Google OAuth routes
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
-router.get("/google/callback", passport.authenticate("google", { failureRedirect: ` ${process.env.CLIENT_URL}/login` }), (req, res) => {
+router.get("/google/callback", passport.authenticate("google", { failureRedirect: ` /${process.env.CLIENT_URL}/login` }), (req, res) => {
   const user = req.user; // This will be populated by Passport
   // Generate JWT token after successful Google login
   const token = generateJwtToken({ id: user.id, isGoogleAccount: user.isGoogleAccount });
@@ -50,7 +50,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
   });
 
   // Redirect to a protected route after login
-  res.redirect(`${process.env.CLIENT_URL}/home`);
+  res.redirect(`/${process.env.CLIENT_URL}/home`);
 });
 
 module.exports = router;
