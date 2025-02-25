@@ -12,6 +12,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const http = require("http");
 const { Server } = require("socket.io");
+const MongoStore = require("connect-mongo");
 
 // Custom modules (routes, passport strategy, logger, etc.)
 const authRouter = require("./routes/authRoute");
@@ -51,11 +52,16 @@ app.use(
 // Session configuration
 app.use(
   session({
-    secret: "your-session-secret",
+    secret: process.env.SESSION_SECRET
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI, // your MongoDB connection URI
+      ttl: 14 * 24 * 60 * 60, // = 14 days. Adjust as needed.
+    }),
   })
 );
+
 
 // Initialize Passport and Google OAuth strategy
 googleOauthStartegy();
@@ -131,6 +137,7 @@ const io = new Server(server, {
     origin: process.env.CLIENT_URL,
     credentials: true,
   },
+  pingTimeout: 60000,
 });
 
 // Load and initialize socket handlers
