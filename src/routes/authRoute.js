@@ -7,6 +7,7 @@ const { validateOtpValidator, sendOtpValidator } = require("../validators/otpVal
 const resetPasswordValidator = require("../validators/resetPasswordValidator");
 const { protect } = require("../middlewares/protect");
 const { checkUserExist, checkUserNotExist } = require("../middlewares/checkUser");
+const cookieGenerator = require("../utilsFunction/cookieGenerator");
 
 const router = express.Router();
 
@@ -43,11 +44,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
   const token = generateJwtToken({ id: user.id, isGoogleAccount: user.isGoogleAccount });
 
   // Send the token as a secure HTTP-only cookie
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production", // Use secure cookie in production
-    maxAge: 24 * 60 * 60 * 1000,
-  });
+  cookieGenerator(res, token);
 
   // Redirect to a protected route after login
   res.redirect(`https://${process.env.CLIENT_URL}/home`);
