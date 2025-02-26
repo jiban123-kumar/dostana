@@ -64,14 +64,17 @@ app.use(
 
 // Initialize Passport and Google OAuth strategy
 googleOauthStartegy();
+
 app.use(passport.initialize());
 app.use(passport.session());
 
 // Serialize and deserialize user
 passport.serializeUser((user, done) => {
-  done(null, { token: user.token });
+  console.log(user);
+  done(null, user);
 });
 passport.deserializeUser((user, done) => {
+  console.log(user);
   done(null, user);
 });
 

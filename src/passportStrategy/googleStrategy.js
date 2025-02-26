@@ -26,12 +26,7 @@ const googleOauthStartegy = () => {
               profileImage: profile.photos[0].value,
             });
           }
-          const payload = {
-            id: user._id,
-            isGoogleAccount: true,
-          };
-          const token = generateJwtToken(payload);
-          user.token = token;
+
           return done(null, user);
         } catch (err) {
           done(err, false);
