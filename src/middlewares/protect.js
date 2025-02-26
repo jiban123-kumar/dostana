@@ -12,8 +12,8 @@ exports.protect = async (req, res, next) => {
       req.user = decodedInfo;
       return next();
     }
-
     // Otherwise, if Passport has set req.user via session, allow access
+    console.log(req.user);
     if (req.isAuthenticated && req.isAuthenticated()) {
       // req.user is already set by Passport (for Google OAuth)
       return next();
