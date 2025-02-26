@@ -114,7 +114,6 @@ const changePassword = catchAsync(async (req, res, next) => {
 
 const deleteAccount = catchAsync(async (req, res, next) => {
   const { password, isAccountDelete } = req.body;
-  console.log(password, isAccountDelete);
   const user = await User.findById(req.user?.id);
 
   if (!user) {
@@ -122,7 +121,13 @@ const deleteAccount = catchAsync(async (req, res, next) => {
   }
   if (req.user?.isGoogleAccount) {
     await User.findByIdAndDelete(req.user?.id);
-    res.clearCookie("token"); // Adjust the cookie name if different
+    req.logout((err) => {
+      if (err) return next(err);
+      // Optionally destroy the session completely
+      req.session.destroy(() => {
+        res.redirect(`https://${process.env.CLIENT_URL}/login`);
+      });
+    });
 
     return res.status(204).json({ message: "Account deleted successfully" });
   }
@@ -132,18 +137,12 @@ const deleteAccount = catchAsync(async (req, res, next) => {
   }
   if (isAccountDelete) {
     await User.findByIdAndDelete(req.user?.id);
-    res.clearCookie("token"); // Adjust the cookie name if different
+    res.clearCookie("token");
 
     return res.status(204).json({ message: "Account deleted successfully" });
   }
 
   res.status(204).json({ message: "Account deleted successfully" });
-});
-
-const deleteAllAccounts = catchAsync(async (req, res) => {
-  await User.deleteMany({});
-  await EmailVerification.deleteMany({});
-  res.status(200).json({ message: "All accounts deleted successfully" });
 });
 
 const resetPassword = catchAsync(async (req, res, next) => {
