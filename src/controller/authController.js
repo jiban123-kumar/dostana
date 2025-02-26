@@ -185,16 +185,26 @@ const resetPassword = catchAsync(async (req, res, next) => {
   }
 });
 
-const logoutUser = catchAsync(async (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  });
-  // Adjust the cookie name if different
-  res.status(200).json({ message: "Logout successful" });
-});
-
+const logoutUser = (req, res, next) => {
+  // If using Passport session (e.g., Google auth), log out the session
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    req.logout((err) => {
+      if (err) return next(err);
+      // Optionally destroy the session completely
+      req.session.destroy(() => {
+        res.redirect(`https://${process.env.CLIENT_URL}/home`);
+      });
+    });
+  } else {
+    // Otherwise, clear the JWT token cookie used for email auth
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    res.status(200).json({ message: "Logout successful" });
+  }
+};
 module.exports = {
   loginUser,
   registerUser,

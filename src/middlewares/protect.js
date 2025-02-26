@@ -4,23 +4,23 @@ const CustomError = require("../utilsFunction/customError");
 
 exports.protect = async (req, res, next) => {
   try {
-    // extract the token from request cookies
-
     const { token } = req.cookies;
-    console.log(token);
-    // if token is not there, return 401 response
-    if (!token) {
-      return next(new CustomError("Token not found", 401));
+
+    // If a JWT is present, verify it
+    if (token) {
+      const decodedInfo = jwt.verify(token, process.env.JWT_SECRET_KEY);
+      req.user = decodedInfo;
+      return next();
     }
 
-    // verifies the token
-    const decodedInfo = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    // Otherwise, if Passport has set req.user via session, allow access
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      // req.user is already set by Passport (for Google OAuth)
+      return next();
+    }
 
-    // checks if decoded info contains legit details, then set that info in req.user and calls next
-    req.user = decodedInfo;
-    next();
-
-    // if token is invalid then sends the response accordingly
+    // If neither token nor session-based auth is found, deny access
+    return next(new CustomError("Authentication required", 401));
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       return next(new CustomError("Token expired, please login again", 401));
