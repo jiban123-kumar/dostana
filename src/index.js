@@ -70,11 +70,9 @@ app.use(passport.session());
 
 // Serialize and deserialize user
 passport.serializeUser((user, done) => {
-  console.log(user);
   done(null, user);
 });
 passport.deserializeUser((user, done) => {
-  console.log(user);
   done(null, user);
 });
 

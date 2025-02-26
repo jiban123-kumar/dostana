@@ -5,7 +5,7 @@ const CustomError = require("../utilsFunction/customError");
 exports.protect = async (req, res, next) => {
   try {
     // extract the token from request cookies
-    console.log("called");
+    console.log("called", req.user);
 
     const { token } = req.cookies;
     // if token is not there, return 401 response
