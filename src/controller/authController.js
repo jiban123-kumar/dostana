@@ -209,7 +209,6 @@ module.exports = {
   registerUser,
   verifyOtp,
   deleteAccount,
-  deleteAllAccounts,
   resetPassword,
   changePassword,
   logoutUser,
