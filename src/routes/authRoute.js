@@ -36,7 +36,7 @@ router.post("/logout", logoutUser);
 // Google OAuth routes
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
-router.get("/google/callback", passport.authenticate("google", { failureRedirect: `https://${process.env.CLIENT_URL}/home` }), (req, res) => {
+router.get("/google/callback", passport.authenticate("google", { failureRedirect: `https://${process.env.CLIENT_URL}/login` }), (req, res) => {
   res.redirect(`https://${process.env.CLIENT_URL}/home`);
 });
 

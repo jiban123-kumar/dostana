@@ -1,6 +1,5 @@
 const passport = require("passport");
 const User = require("../model/userModel");
-const { generateJwtToken } = require("../utilsFunction/jwtUtil");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const googleOauthStartegy = () => {
@@ -8,6 +7,7 @@ const googleOauthStartegy = () => {
     new GoogleStrategy(
       {
         clientID: process.env.GOOGLE_AUTH_CLIENT_ID,
+
         clientSecret: process.env.GOOGLE_AUTH_CLIENT_SECRET,
 
         callbackURL: process.env.GOOGLE_AUTH_CALLBACK_URL,

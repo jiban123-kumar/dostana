@@ -2,7 +2,6 @@
 const Content = require("../model/contentModel");
 const Reaction = require("../model/reactionModel");
 const User = require("../model/userModel");
-const Share = require("../model/shareModel");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
 const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
@@ -131,6 +130,7 @@ const deleteContent = catchAsync(async (req, res, next) => {
   await content.deleteOne();
   res.status(200).json({
     message: `${content.type.charAt(0).toUpperCase() + content.type.slice(1)} and associated files deleted successfully`,
+    content,
   });
 });
 
