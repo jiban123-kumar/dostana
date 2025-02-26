@@ -1,5 +1,6 @@
 const passport = require("passport");
 const User = require("../model/userModel");
+const { generateJwtToken } = require("../utilsFunction/jwtUtil");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const googleOauthStartegy = () => {
@@ -25,7 +26,13 @@ const googleOauthStartegy = () => {
               profileImage: profile.photos[0].value,
             });
           }
-          return done(null, { id: user._id, isGoogleAccount: true });
+          const payload = {
+            id: user._id,
+            isGoogleAccount: true,
+          };
+          const token = generateJwtToken(payload);
+          user.token = token;
+          return done(null, user);
         } catch (err) {
           done(err, false);
         }

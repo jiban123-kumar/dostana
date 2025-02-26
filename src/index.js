@@ -59,11 +59,6 @@ app.use(
       mongoUrl: process.env.MONGO_URI, // your MongoDB connection URI
       ttl: 14 * 24 * 60 * 60, // = 14 days. Adjust as needed.
     }),
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      httpOnly: true,
-    },
   })
 );
 
@@ -74,7 +69,7 @@ app.use(passport.session());
 
 // Serialize and deserialize user
 passport.serializeUser((user, done) => {
-  done(null, user);
+  done(null, { token: user.token });
 });
 passport.deserializeUser((user, done) => {
   done(null, user);
