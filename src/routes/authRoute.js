@@ -37,8 +37,8 @@ router.post("/logout", logoutUser);
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
 router.get("/google/callback", passport.authenticate("google", { failureRedirect: `https://${process.env.CLIENT_URL}/home`, session: false }), (req, res) => {
-  const token = req.user?.token;
   // Send the token as a secure HTTP-only cookie
+  const token = generateJwtToken({ id: req.user._id, isGoogleAccount: true });
   cookieGenerator(res, token);
   // Redirect to a protected route after login
   res.redirect(`https://${process.env.CLIENT_URL}/home`);
