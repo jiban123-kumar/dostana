@@ -1,13 +1,11 @@
 const express = require("express");
 const passport = require("passport");
-const { generateJwtToken } = require("../utilsFunction/jwtUtil");
-const { loginUser, registerUser, verifyOtp, resetPassword, deleteAccount, deleteAllAccounts, changePassword, logoutUser, requestOtp } = require("../controller/authController");
+const { loginUser, registerUser, verifyOtp, resetPassword, deleteAccount, changePassword, logoutUser, requestOtp } = require("../controller/authController");
 const validationResultResponse = require("../validators/expressValidatorsResult");
 const { validateOtpValidator, sendOtpValidator } = require("../validators/otpValidator");
 const resetPasswordValidator = require("../validators/resetPasswordValidator");
 const { protect } = require("../middlewares/protect");
 const { checkUserExist, checkUserNotExist } = require("../middlewares/checkUser");
-const cookieGenerator = require("../utilsFunction/cookieGenerator");
 
 const router = express.Router();
 
@@ -30,8 +28,6 @@ router.post("/password/reset", resetPasswordValidator, validationResultResponse,
 router.post("/password/change", protect, changePassword);
 
 router.delete("/account", protect, deleteAccount);
-
-router.delete("/accounts", deleteAllAccounts);
 
 router.post("/logout", logoutUser);
 
