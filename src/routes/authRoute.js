@@ -37,7 +37,8 @@ router.post("/logout", logoutUser);
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
 router.get("/google/callback", passport.authenticate("google", { failureRedirect: `https://${process.env.CLIENT_URL}/login` }), (req, res) => {
-  res.redirect(`https://${process.env.CLIENT_URL}/home`);
+  // res.redirect(`https://${process.env.CLIENT_URL}/home`);
+  res.redirect(`http://localhost:5173/home`);
 });
 
 module.exports = router;
