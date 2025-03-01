@@ -8,78 +8,68 @@ const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
 const sendMessage = catchAsync(async (req, res, next) => {
   const { recipientId, text } = req.body;
   const senderId = req.user?.id;
+  if (!text.trim() && req.files?.length === 0) {
+    return next(new CustomError("Please provide text or media", 400));
+  }
 
   if (!senderId) {
     throw new CustomError("Unauthorized", 401);
   }
 
-  const recipient = await User.findById(recipientId);
+  const [sender, recipient] = await Promise.all([User.findById(senderId).select("firstName lastName profileImage"), User.findById(recipientId).select("firstName lastName profileImage")]);
+
   if (!recipient) {
     throw new CustomError("Recipient not found", 404);
   }
 
-  // Find an existing chat between the sender and the recipient, or create one.
   let chat = await Chat.findOne({
-    participants: { $all: [senderId, recipientId] },
+    "participants._id": { $all: [senderId, recipientId] },
   });
 
   if (!chat) {
     chat = await Chat.create({
-      participants: [senderId, recipientId],
+      participants: [
+        { _id: sender._id, ...sender.toObject() },
+        { _id: recipient._id, ...recipient.toObject() },
+      ],
       messages: [],
     });
   }
 
-  // This array will store info on files successfully uploaded to Supabase.
   let mediaUrls = [];
-
   try {
-    // Process uploaded files if any.
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const { buffer, originalname, mimetype } = file;
         const result = await uploadFileToSupabase({ buffer, originalname, mimetype });
 
         if (result.isError) {
-          // If a file upload fails, throw an error to trigger the catch block.
           throw new CustomError(`Failed to upload file: ${result.message}`, 500);
         }
 
-        // Determine the file type from the MIME type (e.g., "image" for "image/jpeg").
-        const fileType = mimetype.split("/")[0];
-
-        // Save the file URL and type.
         mediaUrls.push({
           url: result.fileUrl,
-          type: fileType,
+          type: mimetype.split("/")[0],
         });
       }
     }
 
-    // Create the new message object.
     const newMessage = {
-      sender: senderId, // Only the sender ID is stored here.
+      sender: {
+        _id: sender._id,
+        firstName: sender.firstName,
+        lastName: sender.lastName,
+        profileImage: sender.profileImage,
+      },
       text,
-      media: mediaUrls, // either an array of file objects or an empty array
-      deletedFor: [], // initially, no one has deleted the message
+      media: mediaUrls,
+      deletedFor: [],
     };
 
-    // Append the new message to the chat.
     chat.messages.push(newMessage);
-
-    // Save the updated chat document.
     await chat.save();
 
-    // Fetch sender's profile separately.
-    const senderProfile = await User.findById(senderId).select("firstName lastName profileImage");
-
-    // Retrieve the newly created message.
     const createdMessage = chat.messages[chat.messages.length - 1].toObject();
-
-    // Attach the sender's profile as a separate field.
-    createdMessage.senderProfile = senderProfile;
-
-    // Return the new message with the sender ID and senderProfile.
     res.status(200).json({
       message: "Message sent successfully",
       newMessage: createdMessage,
@@ -87,23 +77,14 @@ const sendMessage = catchAsync(async (req, res, next) => {
       chatId: chat._id,
     });
   } catch (err) {
-    // Cleanup: If an error occurs, remove any uploaded files from Supabase.
     if (mediaUrls.length > 0) {
-      for (const media of mediaUrls) {
-        try {
-          await removeFileFromSupabase(media.url);
-        } catch (cleanupError) {
-          console.error(`Failed to cleanup file ${media.url}:`, cleanupError);
-        }
-      }
+      await Promise.all(mediaUrls.map((media) => removeFileFromSupabase(media.url)));
     }
-    // Forward the error to the error handler.
     throw err;
   }
 });
 
 const deleteMessage = catchAsync(async (req, res, next) => {
-  // Expecting a field "deleteFor" in the body with value "me" or "everyone"
   const { deleteFor, chatId, messageId, recipientId } = req.body;
   const userId = req.user.id;
 
@@ -112,7 +93,6 @@ const deleteMessage = catchAsync(async (req, res, next) => {
     return next(new CustomError("Chat not found", 404));
   }
 
-  // Find the message by its ID
   const messageIndex = chat.messages.findIndex((msg) => msg._id.toString() === messageId);
   if (messageIndex === -1) {
     return next(new CustomError("Message not found", 404));
@@ -120,98 +100,62 @@ const deleteMessage = catchAsync(async (req, res, next) => {
 
   const message = chat.messages[messageIndex];
 
-  // Delete for Everyone (hard delete) - only allowed for sender.
   if (deleteFor === "Everyone") {
-    if (message.sender.toString() !== userId) {
+    if (message.sender._id.toString() !== userId) {
       return next(new CustomError("You can only delete your own messages for everyone", 403));
     }
 
-    // Remove associated media files from Supabase if any.
     if (message.media && message.media.length > 0) {
-      for (const filePath of message.media) {
-        const { isError } = await removeFileFromSupabase(filePath.url);
-        if (isError) {
-          console.error(`Failed to delete file from Supabase: ${filePath}`);
-        }
-      }
+      await Promise.all(message.media.map((file) => removeFileFromSupabase(file.url)));
     }
-
-    // Remove the message from the chat entirely.
     chat.messages.splice(messageIndex, 1);
   } else {
-    // Default: delete for "me"
-    // Add the current user's ID to the message's deletedFor array if not already present.
     if (!message.deletedFor.includes(userId)) {
       message.deletedFor.push(userId);
     }
 
-    // If every participant in the chat has deleted the message, remove it completely.
-    const allDeleted = chat.participants.every((participant) => message.deletedFor.includes(participant.toString()));
+    const allDeleted = chat.participants.every((participant) => message.deletedFor.includes(participant._id.toString()));
 
     if (allDeleted) {
       if (message.media && message.media.length > 0) {
-        for (const filePath of message.media) {
-          const { isError } = await removeFileFromSupabase(filePath.url);
-          if (isError) {
-            console.error(`Failed to delete file from Supabase: ${filePath}`);
-          }
-        }
+        await Promise.all(message.media.map((file) => removeFileFromSupabase(file.url)));
       }
       chat.messages.splice(messageIndex, 1);
     }
   }
 
   await chat.save();
-  const deletedMessageId = messageId;
-
-  res.status(200).json({ message: "Message deletion processed successfully", deletedMessageId, recipientId, deleteForEveryone: deleteFor === "Everyone" });
+  res.status(200).json({
+    message: "Message deletion processed successfully",
+    deletedMessageId: messageId,
+    recipientId,
+    deleteForEveryone: deleteFor === "Everyone",
+  });
 });
 
-/**
- * Delete an entire chat.
- * (This controller remains largely the same as before.)
- */
-/**
- * Delete an entire chat.
- * This controller now also marks all messages as deleted for the logged-in user.
- */
 const deletechat = catchAsync(async (req, res, next) => {
   const { chatId } = req.params;
   const userId = req.user.id;
-  console.log(chatId, userId);
 
   const chat = await Chat.findById(chatId);
   if (!chat) {
     return next(new CustomError("Chat not found", 404));
   }
 
-  // Mark all messages as deleted for the current user.
   chat.messages.forEach((message) => {
     if (!message.deletedFor.includes(userId)) {
       message.deletedFor.push(userId);
     }
   });
 
-  // Add user ID to deletedBy array if not already present.
   if (!chat.deletedBy.includes(userId)) {
     chat.deletedBy.push(userId);
   }
 
-  // If both users have deleted, remove chat and associated media.
   if (chat.deletedBy.length === chat.participants.length) {
     if (chat.messages.length > 0) {
-      for (const message of chat.messages) {
-        if (message.media && message.media.length > 0) {
-          for (const filePath of message.media) {
-            const { isError } = await removeFileFromSupabase(filePath.url);
-            if (isError) {
-              console.error(`Failed to delete file from Supabase: ${filePath}`);
-            }
-          }
-        }
-      }
+      await Promise.all(chat.messages.flatMap((msg) => msg.media.map((file) => removeFileFromSupabase(file.url))));
     }
-
     await Chat.findByIdAndDelete(chatId);
     return res.status(200).json({ message: "Chat and associated media deleted permanently" });
   }
@@ -225,30 +169,30 @@ const getAllChats = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
 
-  // Count total matching chats
-  const total = await Chat.countDocuments({
-    participants: loggedInUserId,
-    deletedBy: { $nin: [loggedInUserId] },
-    $expr: { $eq: [{ $size: "$participants" }, 2] },
-  });
+  // Determine the archive filter based on the query parameter.
+  // If req.query.archive === "true", then archiveFilter will be true;
+  // otherwise (if "false" or not provided), it will be false.
+  const archiveFilter = req.query.archive === "true";
+  console.log(archiveFilter);
 
-  // Get paginated chats without populating messages.sender
-  const chats = await Chat.find({
-    participants: loggedInUserId,
+  // Build the filter object to only return chats for the logged in user
+  // that have exactly 2 participants, that haven't been deleted by the user,
+  // and match the archived state.
+  const filter = {
+    "participants._id": loggedInUserId,
     deletedBy: { $nin: [loggedInUserId] },
     $expr: { $eq: [{ $size: "$participants" }, 2] },
-  })
+    archived: archiveFilter,
+  };
+
+  const total = await Chat.countDocuments(filter);
+
+  const chats = await Chat.find(filter)
     .sort({ updatedAt: -1 })
     .skip((page - 1) * limit)
-    .limit(limit)
-    .populate({
-      path: "participants",
-      select: "firstName lastName profileImage",
-    });
+    .limit(limit);
 
-  // Process and format the chats
   const filteredChats = chats.map((chat) => {
-    // Only include messages that haven't been deleted for the logged-in user.
     const visibleMessages = chat.messages.filter((msg) => !msg.deletedFor.map(String).includes(loggedInUserId));
     const lastMessage = visibleMessages[visibleMessages.length - 1] || null;
     const participants = chat.participants.filter((user) => user._id.toString() !== loggedInUserId);
@@ -258,7 +202,7 @@ const getAllChats = catchAsync(async (req, res, next) => {
       participants,
       lastMessage,
       updatedAt: chat.updatedAt,
-      archived: chat.archived, // Added archived field
+      archived: chat.archived,
     };
   });
 
@@ -270,69 +214,60 @@ const getAllChats = catchAsync(async (req, res, next) => {
   });
 });
 
-/**
- * Toggle archive status of a chat.
- */
 const toggleArchiveChat = catchAsync(async (req, res, next) => {
-  const { chatId } = req.params;
   const loggedInUserId = req.user.id;
-  const { recipientId } = req.body;
+  const { recipientId, chatId } = req.body;
 
-  // Find the chat and ensure the logged-in user is a participant
-  const chat = await Chat.findOne({ _id: chatId, participants: { $in: [loggedInUserId] } });
+  const chat = await Chat.findOne({
+    _id: chatId,
+    "participants._id": loggedInUserId,
+  });
 
   if (!chat) {
     return res.status(404).json({ message: "Chat not found or you are not a participant" });
   }
 
-  // Toggle the archived status
   chat.archived = !chat.archived;
   await chat.save();
 
   res.status(200).json({
-    message: `chat ${chat.archived ? "archived" : "unarchived"} successfully`,
+    message: `Chat ${chat.archived ? "archived" : "unarchived"} successfully`,
     chatId: chat._id,
     archived: chat.archived,
     recipientId,
   });
 });
+
 const getChatByUserId = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
   const loggedInUserId = req.user.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
 
-  // Find the chat and populate participants only (do not populate messages.sender)
   let chat = await Chat.findOne({
-    participants: { $all: [loggedInUserId, userId] },
-  }).populate({
-    path: "participants",
-    select: "firstName lastName profileImage",
+    "participants._id": { $all: [loggedInUserId, userId] },
   });
 
-  // If the chat exists and was previously deleted for the logged-in user, restore it.
   if (chat && chat.deletedBy.includes(loggedInUserId)) {
     chat.deletedBy = chat.deletedBy.filter((id) => id.toString() !== loggedInUserId);
     await chat.save();
   }
 
-  // If no chat exists, create a new one and populate participants only.
   if (!chat) {
+    const [loggedInUser, otherUser] = await Promise.all([User.findById(loggedInUserId).select("firstName lastName profileImage"), User.findById(userId).select("firstName lastName profileImage")]);
+
     chat = await Chat.create({
-      participants: [loggedInUserId, userId],
+      participants: [
+        { _id: loggedInUser._id, ...loggedInUser.toObject() },
+        { _id: otherUser._id, ...otherUser.toObject() },
+      ],
       messages: [],
       deletedBy: [],
     });
-    chat = await Chat.findById(chat._id).populate({
-      path: "participants",
-      select: "firstName lastName profileImage",
-    });
   }
 
-  // Filter visible messages for the logged-in user.
   const visibleMessages = chat.messages.filter((msg) => !msg.deletedFor.map(String).includes(loggedInUserId));
 
-  // Calculate pagination for messages.
   const totalMessages = visibleMessages.length;
   const startIndex = Math.max(0, totalMessages - page * limit);
   const endIndex = totalMessages - (page - 1) * limit;
@@ -341,30 +276,21 @@ const getChatByUserId = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     chatId: chat._id,
-    archived: chat.archived, // Added archived field
-    // Return only the other participant's info.
+    archived: chat.archived,
     participants: chat.participants.filter((u) => u._id.toString() !== loggedInUserId),
-    messages: messagesChunk, // messages.sender remains as the sender ID only.
+    messages: messagesChunk,
     hasMore,
   });
 });
 
-// ========================================================================
-// 1. Controller to get the total unread messages count for the logged-in user.
-//    Only messages not sent by the user and not yet read are counted.
-// ========================================================================
 const getTotalUnreadMessages = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
-  // Find all chats where the logged-in user is a participant.
-  const chats = await Chat.find({ participants: userId });
+  const chats = await Chat.find({ "participants._id": userId });
   let totalUnread = 0;
 
   chats.forEach((chat) => {
     chat.messages.forEach((message) => {
-      // Count the message if:
-      // - It was not sent by the logged-in user.
-      // - It is not marked as read.
-      if (message.sender.toString() !== userId && !message.isRead) {
+      if (message.sender._id.toString() !== userId && !message.isRead) {
         totalUnread++;
       }
     });
@@ -376,13 +302,8 @@ const getTotalUnreadMessages = catchAsync(async (req, res, next) => {
   });
 });
 
-/**
- * Controller to mark all messages in a specific chat as read.
- * This is intended to be called when the chat modal is mounted.
- */
 const markMessagesAsRead = catchAsync(async (req, res, next) => {
-  // You can either pass the chatId in req.body or req.params.
-  const { chatId } = req.body; // or use req.params.chatId if preferred.
+  const { chatId } = req.body;
   const userId = req.user.id;
 
   const chat = await Chat.findById(chatId);
@@ -390,22 +311,17 @@ const markMessagesAsRead = catchAsync(async (req, res, next) => {
     return next(new CustomError("Chat not found", 404));
   }
 
-  // Flag to check if at least one message is updated.
   let isUpdated = false;
-
-  // Mark as read all messages not sent by the logged-in user.
   chat.messages.forEach((message) => {
-    if (message.sender.toString() !== userId && !message.isRead) {
+    if (message.sender._id.toString() !== userId && !message.isRead) {
       message.isRead = true;
       isUpdated = true;
     }
   });
 
-  // Save the chat only if there were updates.
   if (isUpdated) {
     await chat.save();
   }
-  console.log(chat);
 
   res.status(200).json({
     message: "All messages marked as read successfully",
@@ -413,10 +329,6 @@ const markMessagesAsRead = catchAsync(async (req, res, next) => {
   });
 });
 
-// ========================================================================
-// 3. Controller to get the unread messages count for a specific chat.
-//    Only messages not sent by the user and not yet read are counted.
-// ========================================================================
 const getUnreadCountForChat = catchAsync(async (req, res, next) => {
   const { chatId } = req.params;
   const userId = req.user.id;
@@ -428,7 +340,7 @@ const getUnreadCountForChat = catchAsync(async (req, res, next) => {
 
   let unreadCount = 0;
   chat.messages.forEach((message) => {
-    if (message.sender.toString() !== userId && !message.isRead) {
+    if (message.sender._id.toString() !== userId && !message.isRead) {
       unreadCount++;
     }
   });
@@ -438,21 +350,18 @@ const getUnreadCountForChat = catchAsync(async (req, res, next) => {
     unreadCount,
   });
 });
+
 const getLastMessageByChatId = catchAsync(async (req, res, next) => {
   const loggedInUserId = req.user.id;
   const { chatId } = req.params;
 
-  // Find the chat by ID and ensure the logged-in user is a participant
-  const chat = await Chat.findOne({ _id: chatId });
-
-  // Filter out messages deleted for the logged-in user
+  const chat = await Chat.findById(chatId);
   const visibleMessages = chat.messages.filter((msg) => !msg.deletedFor.map(String).includes(loggedInUserId));
-
-  // Get the last visible message (if any)
   const lastMessage = visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1] : null;
 
   res.status(200).json({ lastMessage });
 });
+
 const markMessagesAsReadByIds = catchAsync(async (req, res, next) => {
   const { messageIds } = req.body;
   const userId = req.user.id;
@@ -461,20 +370,17 @@ const markMessagesAsReadByIds = catchAsync(async (req, res, next) => {
     return next(new CustomError("Please provide an array of message IDs", 400));
   }
 
-  // First, find all chats containing any of the provided message IDs.
   const chats = await Chat.find({ "messages._id": { $in: messageIds } });
 
-  // Count the total number of unread messages (isRead === false) not sent by the user.
   let totalUpdatedCount = 0;
   chats.forEach((chat) => {
     chat.messages.forEach((message) => {
-      if (messageIds.includes(message._id.toString()) && message.sender.toString() !== userId && message.isRead === false) {
+      if (messageIds.includes(message._id.toString()) && message.sender._id.toString() !== userId && message.isRead === false) {
         totalUpdatedCount++;
       }
     });
   });
 
-  // Update the matching messages in all chats
   await Chat.updateMany(
     { "messages._id": { $in: messageIds } },
     { $set: { "messages.$[elem].isRead": true } },
@@ -482,7 +388,7 @@ const markMessagesAsReadByIds = catchAsync(async (req, res, next) => {
       arrayFilters: [
         {
           "elem._id": { $in: messageIds },
-          "elem.sender": { $ne: userId },
+          "elem.sender._id": { $ne: userId },
           "elem.isRead": false,
         },
       ],

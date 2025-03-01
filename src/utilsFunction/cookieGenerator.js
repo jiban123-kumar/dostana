@@ -4,11 +4,12 @@ const cookieGenerator = (res, token) => {
   }
 
   const isProduction = process.env.NODE_ENV === "production";
-  const maxAge = parseInt(process.env.COOKIE_EXPIRATION_DAYS, 10) * 24 * 60 * 60 * 1000 || 7 * 24 * 60 * 60 * 1000; // Default to 7 days
+  const days = parseInt(process.env.COOKIE_EXPIRATION_DAYS, 10) || 7;
+  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000); // Set expiration date
 
   res.cookie("token", token, {
     sameSite: isProduction ? "None" : "Strict",
-    maxAge,
+    expires, // Use explicit expiration date
     httpOnly: true,
     secure: isProduction,
   });

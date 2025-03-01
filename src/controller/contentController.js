@@ -63,6 +63,7 @@ const createContent = catchAsync(async (req, res, next) => {
   const { type, caption, mediaType } = req.body;
   const user = await User.findById(req.user?.id);
   if (!user) return next(new CustomError("User not found", 404));
+  console.log(type, caption, mediaType);
 
   if (!["tweet", "post"].includes(type)) return next(new CustomError("Invalid content type", 400));
 

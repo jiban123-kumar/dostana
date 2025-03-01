@@ -7,6 +7,13 @@ const EmailVerification = require("../model/emailVerificationModel");
 const mongoose = require("mongoose");
 const { sendOtp, validateOtp } = require("../utilsFunction/nodemailer");
 const cookieGenerator = require("../utilsFunction/cookieGenerator");
+const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
+
+const Reaction = require("../model/reactionModel");
+const Content = require("../model/contentModel");
+const Notification = require("../model/notificationModel");
+const Comment = require("../model/commentModel");
+const Friend = require("../model/friendModel");
 
 // Helper function to handle OTP validation
 
@@ -87,7 +94,7 @@ const loginUser = catchAsync(async (req, res, next) => {
   if (!isValidPassword) {
     return next(new CustomError("Invalid password", 401));
   }
-  const token = generateJwtToken({ id: user._id, email });
+  const token = generateJwtToken({ id: user._id });
   cookieGenerator(res, token);
   const isProfileCompleted = user.isProfileCompleted;
   res.status(200).json({ status: "success", message: "Login successful", isProfileCompleted });
@@ -110,39 +117,6 @@ const changePassword = catchAsync(async (req, res, next) => {
   user.password = hashedPassword;
   await user.save();
   res.status(200).json({ message: "Password changed successfully" });
-});
-
-const deleteAccount = catchAsync(async (req, res, next) => {
-  const { password, isAccountDelete } = req.body;
-  const user = await User.findById(req.user?.id);
-
-  if (!user) {
-    return next(new CustomError("User not found", 404));
-  }
-  if (req.user?.isGoogleAccount) {
-    await User.findByIdAndDelete(req.user?.id);
-    req.logout((err) => {
-      if (err) return next(err);
-      // Optionally destroy the session completely
-      req.session.destroy(() => {
-        res.redirect(`https://${process.env.CLIENT_URL}/login`);
-      });
-    });
-
-    return res.status(204).json({ message: "Account deleted successfully" });
-  }
-  const isValidPassword = await passwordValidate(password || "", user.password);
-  if (!isValidPassword) {
-    return next(new CustomError("Invalid password", 401));
-  }
-  if (isAccountDelete) {
-    await User.findByIdAndDelete(req.user?.id);
-    res.clearCookie("token");
-
-    return res.status(204).json({ message: "Account deleted successfully" });
-  }
-
-  res.status(204).json({ message: "Account deleted successfully" });
 });
 
 const resetPassword = catchAsync(async (req, res, next) => {
@@ -183,22 +157,104 @@ const resetPassword = catchAsync(async (req, res, next) => {
     next(error);
   }
 });
-
 const logoutUser = catchAsync(async (req, res, next) => {
+  console.log(req.user);
+
+  // Clear authentication token cookie
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
-  if (req.user?.isGoogleAccount) {
-    req.logout((err) => {
-      if (err) return next(err);
-      res.clearCookie("connect.sid");
-      req.session.destroy();
-    });
-  }
+  res.clearCookie("connect.sid");
+
   res.status(200).json({ message: "Logout successful" });
 });
+
+// Helper function to delete all data related to a user
+const deleteUserData = async (userId) => {
+  // Delete all comments made by the user
+  await Comment.deleteMany({ user: userId });
+
+  // Delete all reactions made by the user
+  await Reaction.deleteMany({ user: userId });
+
+  // Find all content (posts/tweets) created by the user
+  const userContents = await Content.find({ user: userId });
+  // Collect IDs of the user's content for further deletion of reactions
+  const userContentIds = userContents.map((content) => content._id);
+
+  // Remove any reactions on the user's content
+  await Reaction.deleteMany({ content: { $in: userContentIds } });
+
+  // For each content, remove associated media files from Supabase
+  for (const content of userContents) {
+    if (content.mediaUrl && content.mediaUrl.length > 0) {
+      for (const filePath of content.mediaUrl) {
+        await removeFileFromSupabase(filePath);
+      }
+    }
+  }
+  // Delete all content documents for the user
+  await Content.deleteMany({ user: userId });
+
+  // Delete notifications belonging to the user
+  await Notification.deleteMany({ user: userId });
+
+  // Delete friend relationships where the user is involved (either as requester or recipient)
+  await Friend.deleteMany({ $or: [{ requester: userId }, { recipient: userId }] });
+
+  // Add any other related data deletion here as needed
+};
+
+// Refactored deleteAccount controller
+const deleteAccount = catchAsync(async (req, res, next) => {
+  const { password, isAccountDelete } = req.body;
+  const user = await User.findById(req.user?.id);
+
+  if (!user) {
+    return next(new CustomError("User not found", 404));
+  }
+
+  // For non-Google accounts, validate the provided password
+  if (!req.user?.isGoogleAccount) {
+    const isValidPassword = await passwordValidate(password || "", user.password);
+    if (!isValidPassword) {
+      return next(new CustomError("Invalid password", 401));
+    }
+  }
+
+  // Proceed if deletion is confirmed (or if it's a Google account, which may not require password validation)
+  if (isAccountDelete || req.user?.isGoogleAccount) {
+    // Cascade deletion of all associated data
+    await deleteUserData(user._id);
+
+    // Remove user's own files (profile and cover images) from Supabase, if they exist
+    if (user.profileImage) {
+      await removeFileFromSupabase(user.profileImage);
+    }
+    if (user.coverImage) {
+      await removeFileFromSupabase(user.coverImage);
+    }
+
+    // Delete the user document itself
+    await User.findByIdAndDelete(user._id);
+
+    // Logout and clear session/cookie, then send the success response
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    res.clearCookie("connect.sid");
+    res.status(200).json({
+      message: "Account deleted successfully",
+    });
+  } else {
+    res.status(400).json({ message: "Account deletion not confirmed" });
+  }
+});
+
 module.exports = {
   loginUser,
   registerUser,

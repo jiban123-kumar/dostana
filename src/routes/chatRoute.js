@@ -17,7 +17,9 @@ const { messageUpload } = require("../multer/multer");
 
 const router = express.Router();
 
+router.patch("/archive/:chatId", protect, toggleArchiveChat);
 // Send a message (text, photo, or video)
+
 router.post("/send", messageUpload, protect, sendMessage);
 
 // Get a chat with a specific user
@@ -33,8 +35,6 @@ router.post("/message", protect, deleteMessage);
 router.delete("/:chatId", protect, deletechat);
 
 // Archive or unarchive a chat
-router.patch("/archive/:chatId", protect, toggleArchiveChat);
-
 // Mark all messages in a chat as read
 
 // Get the total unread message count for the logged-in user
