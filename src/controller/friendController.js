@@ -4,6 +4,7 @@ const User = require("../model/userModel");
 const UserStatus = require("../model/userStatus");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
+const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 // Send a Friend Request
 const sendFriendRequest = catchAsync(async (req, res, next) => {
@@ -21,8 +22,11 @@ const sendFriendRequest = catchAsync(async (req, res, next) => {
 
   // Create (or update) a friend request
   const friendRequest = await Friend.findOneAndUpdate({ requester: requesterId, recipient: recipientId }, { status: "pending" }, { new: true, upsert: true });
-  console.log(friendRequest);
-
+  await sendPushNotification({
+    body: "You have a new friend request",
+    url: `/user-profile/${requesterId}`,
+    userId: recipientId,
+  });
   res.status(200).json({
     message: "Friend request sent successfully",
     friendRequest,
@@ -43,6 +47,12 @@ const acceptFriendRequest = catchAsync(async (req, res, next) => {
 
   friendRequest.status = "accepted";
   await friendRequest.save();
+  const recipient = friendRequest.recipient;
+  await sendPushNotification({
+    body: `${recipient.firstName + " " + recipient.lastName} accepted your friend request`,
+    url: `/user-profile/${req.user?.id}`,
+    userId: requesterId,
+  });
 
   res.status(200).json({
     message: "Friend request accepted successfully",
@@ -355,6 +365,17 @@ const manageFriendRequests = catchAsync(async (req, res, next) => {
       status: "accepted",
       _id: { $in: affectedRequests.map((r) => r._id) },
     }).populate("requester recipient", "firstName lastName profileImage");
+
+    affectedRequests.forEach((friendRequest) => {
+      const recipient = friendRequest.recipient; // Logged-in user who accepted the requests
+      const requester = friendRequest.requester;
+      sendPushNotification({
+        body: `${recipient.firstName} ${recipient.lastName} accepted your friend request`,
+        url: `/user-profile/${recipient._id}`, // You may adjust this URL as needed
+        userId: requester._id,
+      });
+    });
+
     message = "All friend requests accepted successfully";
   } else if (action === "cancel_all") {
     affectedRequests = await Friend.find({ recipient: userId, status: "pending" }).populate("requester recipient", "firstName lastName profileImage");

@@ -37,14 +37,13 @@ router.post("/logout", logoutUser);
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
 router.get("/google/callback", passport.authenticate("google", { failureRedirect: `https://${process.env.CLIENT_URL}/login` }), (req, res) => {
-  // res.redirect(`https://${process.env.CLIENT_URL}/home`);
   const payLoad = {
-    _id: req.user._id,
+    id: req.user._id,
     isGoogleAccount: true,
   };
   const token = generateJwtToken(payLoad);
   cookieGenerator(res, token);
-  res.redirect(`http://localhost:5173/home`);
+  res.redirect(`https://${process.env.CLIENT_URL}/home`);
 });
 
 module.exports = router;

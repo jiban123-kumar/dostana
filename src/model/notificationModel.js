@@ -7,6 +7,10 @@ const notificationDetailSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    pushNotification: {
+      type: Boolean,
+      default: true,
+    },
     type: {
       type: String,
       enum: ["friend_request_sent", "friend_request_accepted", "content-reaction", "content-share", "content-comment"],

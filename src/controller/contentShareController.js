@@ -3,6 +3,8 @@ const Content = require("../model/contentModel");
 const Share = require("../model/shareModel");
 const CustomError = require("../utilsFunction/customError");
 const catchAsync = require("../utilsFunction/catchAsync");
+const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
+const User = require("../model/userModel");
 
 const getSharedContent = catchAsync(async (req, res, next) => {
   const userId = req.user?.id;
@@ -75,6 +77,14 @@ const shareContent = catchAsync(async (req, res, next) => {
     },
     { new: true, upsert: true }
   );
+  const user = await User.findById(req.user.id);
+  for (const userId of userIds) {
+    await sendPushNotification({
+      body: `${user.firstName} shared a content with you`,
+      url: `/content/${contentId}`,
+      userId: userId,
+    });
+  }
 
   res.status(200).json({
     message: "Content shared successfully",

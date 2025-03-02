@@ -1,7 +1,6 @@
 /* eslint-disable no-undef */
 const dotEnv = require("dotenv");
-dotEnv.config({ path: "./config.env" }); // Load environment variables
-
+dotEnv.config({ path: "./config.env" }); // Load environment variablesconst webpush = require("web-push");
 // Required modules
 const express = require("express");
 const mongoose = require("mongoose");
@@ -25,6 +24,8 @@ const chatRouter = require("./routes/chatRoute");
 
 const notificationRouter = require("./routes/notificationRoute");
 const { googleOauthStartegy } = require("./passportStrategy/googleStrategy");
+const jwt = require("jsonwebtoken");
+const User = require("./model/userModel");
 
 // Configurations
 const app = express();
@@ -88,6 +89,24 @@ app.use("/comment", commentRouter);
 app.use("/friend", friendRouter);
 app.use("/notification", notificationRouter);
 app.use("/chat", chatRouter);
+
+app.get("/auth/check-session", async (req, res) => {
+  const { token } = req.cookies;
+  console.log(token);
+  let decodedInfo = null;
+  if (token) {
+    decodedInfo = jwt.verify(token, process.env.JWT_SECRET_KEY);
+  }
+
+  const userId = decodedInfo?.id;
+  const user = await User.findById(userId);
+
+  if (user) {
+    res.json({ authenticated: true });
+  } else {
+    res.json({ authenticated: false });
+  }
+});
 
 // Undefined routes handler
 app.use((req, res, next) => {
