@@ -31,11 +31,6 @@ const User = require("./model/userModel");
 const app = express();
 const mongoUri = process.env.MONGO_URI;
 
-// ----------------------------------
-// Middleware
-// ----------------------------------
-
-// Parse incoming JSON and cookies
 app.use(express.json());
 app.use(cookieParser());
 
@@ -43,8 +38,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    // origin: `https://${process.env.CLIENT_URL}`,
-    origin: "http://localhost:5173",
+    origin: `https://${process.env.CLIENT_URL}`,
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
     methods: ["GET", "POST", "PATCH", "DELETE"],
@@ -152,8 +146,7 @@ server.listen(PORT, () => {});
 // Create the Socket.IO server
 const io = new Server(server, {
   cors: {
-    // origin: `https://${process.env.CLIENT_URL}`,
-    origin: "http://localhost:5173",
+    origin: `https://${process.env.CLIENT_URL}`,
     credentials: true,
   },
   pingTimeout: 60000,

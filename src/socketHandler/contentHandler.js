@@ -12,7 +12,6 @@ module.exports = (socket, io) => {
 
   // For newContent, if you want to exclude the sender:
   socket.on("contentCreation", (data) => {
-    console.log("data", data);
     io.emit("contentCreation", data);
   });
 
