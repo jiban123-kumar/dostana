@@ -13,7 +13,6 @@ const googleOauthStartegy = () => {
         callbackURL: process.env.GOOGLE_AUTH_CALLBACK_URL,
       },
       async (accessToken, refreshToken, profile, done) => {
-        // Here you would store the profile info in a database if needed
         try {
           let user = await User.findOne({ googleId: profile.id });
           if (!user) {
