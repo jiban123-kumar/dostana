@@ -152,5 +152,4 @@ const io = new Server(server, {
   pingTimeout: 60000,
 });
 
-// Load and initialize socket handlers
 require("./socketHandler")(io);
