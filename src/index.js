@@ -77,6 +77,7 @@ passport.deserializeUser((user, done) => {
 // API Routes
 // ----------------------------------
 app.use("/auth", authRouter);
+app.use("/auth", googleAuthRouter);
 app.use("/profile", profileRouter);
 app.use("/content", contentRouter);
 app.use("/content", reactionRouter);

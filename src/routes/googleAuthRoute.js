@@ -16,22 +16,17 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // and responds with the authentication status.
 router.post("/google/token", async (req, res) => {
   const { token } = req.body;
-
-  // Ensure a token is provided
-  if (!token) {
-    return res.status(400).json({ success: false, message: "Google token is required" });
-  }
+  if (!token) return res.status(400).json({ success: false, message: "Token required" });
 
   try {
-    // Verify the token using google-auth-library
     const ticket = await client.verifyIdToken({
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
-    const payload = ticket.getPayload();
-    const { sub, email, given_name, family_name, picture } = payload;
+    console.log(ticket.getPayload());
+    const { sub, email, given_name, family_name, picture } = ticket.getPayload();
 
-    // Find an existing user by their Google ID or create a new one
+    // Find or create user with email
     let user = await User.findOne({ googleId: sub });
     if (!user) {
       user = await User.create({
@@ -44,18 +39,14 @@ router.post("/google/token", async (req, res) => {
       });
     }
 
-    // Generate a JWT token with the user payload
-    const jwtPayload = { id: user._id, isGoogleAccount: true };
-    const jwtToken = generateJwtToken(jwtPayload);
-
-    // Use your helper to set the JWT token as an HTTP‑only cookie
+    // Generate JWT and set cookie
+    const jwtToken = generateJwtToken({ id: user._id, isGoogleAccount: true });
     cookieGenerator(res, jwtToken);
 
-    // Return a success response with the token (optional)
-    res.json({ success: true, token: jwtToken });
+    res.json({ success: true, user });
   } catch (error) {
-    console.error("Error verifying Google token:", error);
-    res.status(401).json({ success: false, message: "Authentication failed" });
+    console.error("Google auth error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

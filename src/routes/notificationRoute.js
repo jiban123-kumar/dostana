@@ -44,23 +44,28 @@ router.patch("/setting", protect, toggleNotificationSetting);
 // Get the current notifications setting (on/off)
 router.get("/setting", protect, getNotificationSetting);
 
-router.post("/push-subscribe", async (req, res) => {
+router.post("/push-subscription", protect, async (req, res) => {
   try {
     const { subscription } = req.body;
-    await User.findByIdAndUpdate(req.user.id, {
-      pushSubscription: subscription,
+    // Determine update based on whether a subscription is provided
+    const updateData = subscription ? { pushSubscription: subscription, pushEnabled: true } : { pushSubscription: null, pushEnabled: false };
+    console.log(updateData);
+    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true });
+    res.status(200).json({
+      message: subscription ? "Push subscription saved" : "Push subscription removed",
+      pushEnabled: user.pushEnabled,
     });
-    res.status(200).json({ message: "Push subscription saved" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-router.post("/push-unsubscribe", async (req, res) => {
+router.get("/push-subscription", protect, async (req, res) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, {
-      pushSubscription: null,
-    });
-    res.status(200).json({ message: "Push subscription removed" });
+    const user = await User.findById(req.user.id).select("pushEnabled pushSubscription");
+    const pushEnabled = user.pushEnabled;
+    console.log("Push notification subscription:", pushEnabled);
+
+    res.status(200).json({ pushEnabled, message: "Push subscription retrieved successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

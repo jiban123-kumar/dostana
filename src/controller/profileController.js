@@ -94,7 +94,7 @@ const updateUserProfile = catchAsync(async (req, res, next) => {
 
   // Validate avatar field
   if (avatar !== undefined) {
-    const validAvatars = ["avatar1", "avatar2", "avatar3", "avatar4", "avatar5", "avatar6"];
+    const validAvatars = ["avatar1", "avatar2", "avatar3", "avatar4", "avatar5", "avatar6", "avatar7", "avatar8"];
     if (!validAvatars.includes(avatar)) {
       return next(new CustomError("Invalid avatar value", 400));
     }

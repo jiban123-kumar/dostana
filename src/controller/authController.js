@@ -212,6 +212,7 @@ const deleteAccount = catchAsync(async (req, res, next) => {
   if (!user) {
     return next(new CustomError("User not found", 404));
   }
+  console.log(req.user);
 
   // For non-Google accounts, validate the provided password
   if (!req.user?.isGoogleAccount) {
