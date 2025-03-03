@@ -16,7 +16,7 @@ const uploadFileToSupabase = async ({ buffer, originalname, mimetype }) => {
       // Process image using Sharp
       processedBuffer = await sharp(buffer)
         .resize({ width: 800, withoutEnlargement: true }) // Resize to 800px width
-        .toFormat("avif", { quality: 80, force: true, alphaQuality: 100, lossless: true, effort: 4 }) // Convert to AVIF format
+        .toFormat("jpeg", { quality: 80, force: true, alphaQuality: 100, lossless: true, effort: 4 }) // Convert to AVIF format
         .toBuffer();
 
       filePath = `${Date.now()}-${originalname.split(".").slice(0, -1).join(".")}.avif`;

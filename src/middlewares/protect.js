@@ -1,11 +1,11 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const CustomError = require("../utilsFunction/customError");
+const User = require("../model/userModel");
 
 exports.protect = async (req, res, next) => {
   try {
     let token = req.cookies?.token;
-
     // If no token is found and user is not authenticated, return 401
     if (!token) {
       return next(new CustomError("Token not found", 401));
