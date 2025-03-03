@@ -5,6 +5,7 @@ const CustomError = require("../utilsFunction/customError");
 exports.protect = async (req, res, next) => {
   try {
     let token = req.cookies?.token;
+    console.log(req.headers.authorization);
 
     // Extract token from Authorization header if not in cookies
     if (!token && req.headers.authorization?.startsWith("Bearer ")) {
