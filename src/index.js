@@ -21,6 +21,7 @@ const contentRouter = require("./routes/contentRoute");
 const commentRouter = require("./routes/commentRoute");
 const friendRouter = require("./routes/friendRoute");
 const chatRouter = require("./routes/chatRoute");
+const googleAuthRouter = require("./routes/googleAuthRoute");
 
 const notificationRouter = require("./routes/notificationRoute");
 const { googleOauthStartegy } = require("./passportStrategy/googleStrategy");

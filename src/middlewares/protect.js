@@ -5,25 +5,10 @@ const CustomError = require("../utilsFunction/customError");
 exports.protect = async (req, res, next) => {
   try {
     let token = req.cookies?.token;
-    console.log(req.headers.authorization);
-
-    // Extract token from Authorization header if not in cookies
-    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
 
     // If no token is found and user is not authenticated, return 401
-    if (!token && !req.isAuthenticated()) {
+    if (!token) {
       return next(new CustomError("Token not found", 401));
-    }
-
-    // If authenticated via Passport (e.g., Google OAuth), set user and proceed
-    if (req.isAuthenticated() && req.user) {
-      req.user = {
-        id: req.user._id,
-        isGoogleAccount: req.user.isGoogleAccount,
-      };
-      return next();
     }
 
     // Verify JWT token

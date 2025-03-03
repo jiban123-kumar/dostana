@@ -158,15 +158,12 @@ const resetPassword = catchAsync(async (req, res, next) => {
   }
 });
 const logoutUser = catchAsync(async (req, res, next) => {
-  console.log(req.user);
-
   // Clear authentication token cookie
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
-  res.clearCookie("connect.sid");
 
   res.status(200).json({ message: "Logout successful" });
 });
