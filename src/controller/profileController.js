@@ -15,7 +15,6 @@ const createUserProfile = catchAsync(async (req, res, next) => {
   const profileImageFile = req.files?.profileImage?.[0];
   const coverImageFile = req.files?.coverImage?.[0];
 
-  console.log("User ID:", req.user?.id);
   const user = await User.findById(req.user?.id);
 
   if (!user) {
@@ -27,27 +26,23 @@ const createUserProfile = catchAsync(async (req, res, next) => {
   }
 
   // Process profileImage and coverImage (e.g., upload to Supabase)
-  let profileImageUrl = null;
-  let coverImageUrl = null;
 
   if (profileImageFile) {
     const result = await uploadFileToSupabase(profileImageFile);
     if (result.isError) return next(new CustomError("Failed to upload profile image", 500));
-    profileImageUrl = result.fileUrl;
+    user.profileImage = result.fileUrl;
   }
 
   if (coverImageFile) {
     const result = await uploadFileToSupabase(coverImageFile);
     if (result.isError) return next(new CustomError("Failed to upload cover image", 500));
-    coverImageUrl = result.fileUrl;
+    user.coverImage = result.fileUrl;
   }
 
   // Update user profile fields
   user.firstName = cleanName(firstName);
   user.lastName = cleanName(lastName);
   user.isProfileComplete = true;
-  user.profileImage = profileImageUrl || null;
-  user.coverImage = coverImageUrl || null;
   user.mobileNumber = mobileNum;
   user.about = aboutMe;
   user.gender = gender;

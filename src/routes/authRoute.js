@@ -43,7 +43,7 @@ router.get("/google/callback", passport.authenticate("google", { failureRedirect
   };
   const token = generateJwtToken(payLoad);
   cookieGenerator(res, token);
-  res.redirect(`https://${process.env.CLIENT_URL}/home`);
+  res.redirect(`https://${process.env.CLIENT_URL}/home?token=${token}`);
 });
 
 module.exports = router;
