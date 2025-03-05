@@ -1,4 +1,5 @@
 const Notification = require("../model/notificationModel");
+const User = require("../model/userModel");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
 
@@ -7,8 +8,11 @@ const CustomError = require("../utilsFunction/customError");
  */
 const createNotification = catchAsync(async (req, res, next) => {
   const { type, action, userId, referenceId } = req.body;
-  console.log(type);
   const senderId = req.user?.id;
+  const sender = await User.findById(senderId);
+  if (!sender) {
+    return next(new CustomError("User not found", 404));
+  }
 
   // Avoid self-notifications for specific types
   if (type === "content-comment" || type === "content-reaction") {

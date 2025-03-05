@@ -9,7 +9,7 @@ const {
   getChatByUserId,
   getAllChats,
   toggleArchiveChat,
-  markMessagesAsReadByIds,
+  markMessagesAsReadByChatId,
 } = require("../controller/chatController");
 
 const { protect } = require("../middlewares/protect"); // Authentication middleware
@@ -45,6 +45,6 @@ router.get("/unread/:chatId", protect, getUnreadCountForChat);
 
 router.get("/lastMessage/:chatId", protect, getLastMessageByChatId);
 
-router.post("/message/read", protect, markMessagesAsReadByIds);
+router.post("/message/read", protect, markMessagesAsReadByChatId);
 
 module.exports = router;

@@ -4,7 +4,7 @@ const contentSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["tweet", "post"], // Distinguishes between tweet and post
+      enum: ["thought", "post"], // Distinguishes between tweet and post
       required: true,
     },
     caption: {

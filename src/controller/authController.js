@@ -14,6 +14,7 @@ const Content = require("../model/contentModel");
 const Notification = require("../model/notificationModel");
 const Comment = require("../model/commentModel");
 const Friend = require("../model/friendModel");
+const { default: axios } = require("axios");
 
 // Helper function to handle OTP validation
 
@@ -206,52 +207,60 @@ const deleteUserData = async (userId) => {
 
 // Refactored deleteAccount controller
 const deleteAccount = catchAsync(async (req, res, next) => {
-  const { password, isAccountDelete } = req.body;
+  const { password, isAccountDelete, recaptchaToken } = req.body;
   const user = await User.findById(req.user?.id);
 
-  if (!user) {
-    return next(new CustomError("User not found", 404));
-  }
-  console.log(req.user);
+  if (!user) return next(new CustomError("User not found", 404));
 
-  // For non-Google accounts, validate the provided password
-  if (!req.user?.isGoogleAccount) {
-    const isValidPassword = await passwordValidate(password || "", user.password);
-    if (!isValidPassword) {
-      return next(new CustomError("Invalid password", 401));
-    }
+  // Validate password for non-Google accounts
+  if (!req.user?.isGoogleAccount && !(await passwordValidate(password || "", user.password))) {
+    return next(new CustomError("Invalid password", 401));
   }
 
-  // Proceed if deletion is confirmed (or if it's a Google account, which may not require password validation)
-  if (isAccountDelete || req.user?.isGoogleAccount) {
-    // Cascade deletion of all associated data
-    await deleteUserData(user._id);
-
-    // Remove user's own files (profile and cover images) from Supabase, if they exist
-    if (user.profileImage) {
-      await removeFileFromSupabase(user.profileImage);
-    }
-    if (user.coverImage) {
-      await removeFileFromSupabase(user.coverImage);
-    }
-
-    // Delete the user document itself
-    await User.findByIdAndDelete(user._id);
-
-    // Logout and clear session/cookie, then send the success response
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    });
-    res.clearCookie("connect.sid");
-    res.status(200).json({
-      message: "Account deleted successfully",
-    });
-  } else {
-    res.status(400).json({ message: "Account deletion not confirmed" });
+  // Handle reCAPTCHA validation if account deletion is requested
+  if (isAccountDelete) {
+    const recaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!recaptchaValid) return res.status(400).json({ valid: false, error: "reCAPTCHA verification failed" });
   }
+
+  // Proceed with account deletion
+  await handleAccountDeletion(user);
+
+  // Clear session cookies and respond
+  clearUserCookies(res);
+  res.status(200).json({ message: "Account deleted successfully" });
 });
+
+// Function to verify reCAPTCHA
+const verifyRecaptcha = async (token) => {
+  try {
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    const { data } = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+      params: { secret: secretKey, response: token },
+    });
+    return data.success;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Function to handle account deletion
+const handleAccountDeletion = async (user) => {
+  await deleteUserData(user._id);
+  if (user.profileImage) await removeFileFromSupabase(user.profileImage);
+  if (user.coverImage) await removeFileFromSupabase(user.coverImage);
+  await User.findByIdAndDelete(user._id);
+};
+
+// Function to clear cookies after account deletion
+const clearUserCookies = (res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
+  res.clearCookie("connect.sid");
+};
 
 module.exports = {
   loginUser,

@@ -362,27 +362,32 @@ const getLastMessageByChatId = catchAsync(async (req, res, next) => {
   res.status(200).json({ lastMessage });
 });
 
-const markMessagesAsReadByIds = catchAsync(async (req, res, next) => {
-  const { messageIds } = req.body;
+const markMessagesAsReadByChatId = catchAsync(async (req, res, next) => {
+  const { chatId, messageIds } = req.body;
   const userId = req.user.id;
+
+  if (!chatId) {
+    return next(new CustomError("Please provide a chat ID", 400));
+  }
 
   if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
     return next(new CustomError("Please provide an array of message IDs", 400));
   }
 
-  const chats = await Chat.find({ "messages._id": { $in: messageIds } });
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    return next(new CustomError("Chat not found", 404));
+  }
 
   let totalUpdatedCount = 0;
-  chats.forEach((chat) => {
-    chat.messages.forEach((message) => {
-      if (messageIds.includes(message._id.toString()) && message.sender._id.toString() !== userId && message.isRead === false) {
-        totalUpdatedCount++;
-      }
-    });
+  chat.messages.forEach((message) => {
+    if (messageIds.includes(message._id.toString()) && message.sender._id.toString() !== userId && message.isRead === false) {
+      totalUpdatedCount++;
+    }
   });
 
-  await Chat.updateMany(
-    { "messages._id": { $in: messageIds } },
+  await Chat.updateOne(
+    { _id: chatId },
     { $set: { "messages.$[elem].isRead": true } },
     {
       arrayFilters: [
@@ -412,5 +417,5 @@ module.exports = {
   getUnreadCountForChat,
   markMessagesAsRead,
   getLastMessageByChatId,
-  markMessagesAsReadByIds,
+  markMessagesAsReadByChatId,
 };
