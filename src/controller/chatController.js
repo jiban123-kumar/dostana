@@ -4,6 +4,7 @@ const User = require("../model/userModel");
 const Chat = require("../model/chatModel");
 const { uploadFileToSupabase } = require("../utilsFunction/fileUploader");
 const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
+const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 const sendMessage = catchAsync(async (req, res, next) => {
   const { recipientId, text } = req.body;
@@ -65,12 +66,14 @@ const sendMessage = catchAsync(async (req, res, next) => {
 
     chat.messages.push(newMessage);
     await chat.save();
+    const userName = await User.findById(senderId).select("firstName");
 
-    // // Populate the sender field in the newly created message
-    // await chat.populate({
-    //   path: "messages.sender",
-    //   select: "firstName lastName profileImage",
-    // });
+    sendPushNotification({
+      userId: recipientId,
+      title: "Dostana",
+      body: `You have a new message from ${userName.firstName}`,
+      path: `/chats`,
+    });
 
     const createdMessage = chat.messages[chat.messages.length - 1];
 

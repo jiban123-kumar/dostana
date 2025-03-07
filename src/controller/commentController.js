@@ -21,9 +21,10 @@ const createComment = catchAsync(async (req, res, next) => {
   });
   await newComment.populate("user", "profileImage firstName lastName");
 
-  await sendPushNotification({
+  sendPushNotification({
+    title: "Dostana",
     body: `${newComment.user.firstName} commented on your ${content.type}`,
-    url: `/content/${contentId}`,
+    path: `/content/${contentId}`,
     userId: content.user,
   });
 

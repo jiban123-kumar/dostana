@@ -81,8 +81,9 @@ const shareContent = catchAsync(async (req, res, next) => {
   for (const userId of userIds) {
     await sendPushNotification({
       body: `${user.firstName} shared a content with you`,
-      url: `/content/${contentId}`,
+      path: `/content/${contentId}`,
       userId: userId,
+      title: "Dostana",
     });
   }
 

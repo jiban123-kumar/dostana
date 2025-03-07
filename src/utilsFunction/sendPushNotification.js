@@ -1,22 +1,53 @@
-// utils/notification.js
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceKey.json"); // Path to your Firebase service account JSON
 const User = require("../model/userModel");
-const webpush = require("./webpush"); // Import the configured webpush
 
-const sendPushNotification = async ({ userId, title, body, url }) => {
+// Initialize the Firebase Admin SDK
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
+  const baseUrl = `https://${process.env.CLIENT_URL}`;
+
+  const url = `${baseUrl}${path}`;
+
   try {
-    // Check if the user has push enabled
-    const user = await User.findById(userId).select("pushEnabled pushSubscription");
-    if (!user || !user.pushEnabled || !user.pushSubscription) {
-      console.log("User does not have push notifications enabled or no subscription found.");
+    // Retrieve the user and their FCM token from the database.
+    const user = await User.findById(userId).select("fcmToken");
+    if (!user || !user.fcmToken) {
+      console.log("User does not have an FCM token.");
       return;
     }
-    // Send the push notification
-    const payload = JSON.stringify({ title, body, url });
-    await webpush.sendNotification(user.pushSubscription, payload);
-    console.log("Push notification sent successfully");
+    const fcmToken = user.fcmToken;
+    console.log(fcmToken);
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title,
+        body,
+      },
+      // Pass additional data (like the URL) in the data payload.
+      data: {
+        url, // This will be available in your service worker.
+      },
+      // Optionally, set webpush options for compatibility.
+      webpush: {
+        headers: {
+          Urgency: "high",
+        },
+        fcmOptions: {
+          link: url, // Some clients might use this for click actions.
+        },
+      },
+    };
+
+    const response = await admin.messaging().send(message);
+    console.log("Successfully sent FCM message:", response);
+    return response;
   } catch (error) {
-    console.error("Error sending push notification:", error.message);
-    throw error; // Re-throw the error for handling in the calling function
+    console.error("Error sending FCM message:", error);
   }
 };
 

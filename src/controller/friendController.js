@@ -22,10 +22,11 @@ const sendFriendRequest = catchAsync(async (req, res, next) => {
 
   // Create (or update) a friend request
   const friendRequest = await Friend.findOneAndUpdate({ requester: requesterId, recipient: recipientId }, { status: "pending" }, { new: true, upsert: true });
-  await sendPushNotification({
+  sendPushNotification({
     body: "You have a new friend request",
-    url: `/user-profile/${requesterId}`,
+    path: `/user-profile/${requesterId}`,
     userId: recipientId,
+    title: "Dostana",
   });
   res.status(200).json({
     message: "Friend request sent successfully",
@@ -48,10 +49,11 @@ const acceptFriendRequest = catchAsync(async (req, res, next) => {
   friendRequest.status = "accepted";
   await friendRequest.save();
   const recipient = friendRequest.recipient;
-  await sendPushNotification({
+  sendPushNotification({
     body: `${recipient.firstName + " " + recipient.lastName} accepted your friend request`,
-    url: `/user-profile/${req.user?.id}`,
+    path: `/user-profile/${req.user?.id}`,
     userId: requesterId,
+    title: "Dostana",
   });
 
   res.status(200).json({
@@ -209,7 +211,6 @@ const getFriendRequests = catchAsync(async (req, res, next) => {
 const getSuggestedUsers = catchAsync(async (req, res, next) => {
   const userId = req.user?.id;
   if (!userId) return next(new CustomError("User not authenticated", 401));
-  console.log(userId);
 
   // First, determine current friendships and pending requests
   const friendships = await Friend.find({
@@ -371,8 +372,9 @@ const manageFriendRequests = catchAsync(async (req, res, next) => {
       const requester = friendRequest.requester;
       sendPushNotification({
         body: `${recipient.firstName} ${recipient.lastName} accepted your friend request`,
-        url: `/user-profile/${recipient._id}`, // You may adjust this URL as needed
+        path: `/user-profile/${recipient._id}`, // You may adjust this URL as needed
         userId: requester._id,
+        title: "Dostana",
       });
     });
 

@@ -68,10 +68,9 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    pushSubscription: { type: Object },
-    pushEnabled: {
-      type: Boolean,
-      default: false,
+    fcmToken: {
+      type: String,
+      default: null,
     },
   },
   {

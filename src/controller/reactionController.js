@@ -41,10 +41,11 @@ const toggleReaction = catchAsync(async (req, res, next) => {
     existingReaction.type = type;
     await existingReaction.save();
     const content = await Content.findById(contentId);
-    await sendPushNotification({
+    sendPushNotification({
       body: `${existingReaction.user.firstName} reacted to your ${content.type}`,
-      url: `/content/${contentId}`,
+      path: `/content/${contentId}`,
       userId: content.user,
+      title: "Dostana",
     });
     return res.status(200).json({
       message: `Updated reaction to ${type}`,

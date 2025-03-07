@@ -48,24 +48,10 @@ router.post("/push-subscription", protect, async (req, res) => {
   try {
     const { subscription } = req.body;
     // Determine update based on whether a subscription is provided
-    const updateData = subscription ? { pushSubscription: subscription, pushEnabled: true } : { pushSubscription: null, pushEnabled: false };
-    console.log(updateData);
-    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true });
+    await User.findByIdAndUpdate(req.user.id, { fcmToken: subscription }, { new: true });
     res.status(200).json({
       message: subscription ? "Push subscription saved" : "Push subscription removed",
-      pushEnabled: user.pushEnabled,
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-router.get("/push-subscription", protect, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("pushEnabled pushSubscription");
-    const pushEnabled = user.pushEnabled;
-    console.log("Push notification subscription:", pushEnabled);
-
-    res.status(200).json({ pushEnabled, message: "Push subscription retrieved successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
