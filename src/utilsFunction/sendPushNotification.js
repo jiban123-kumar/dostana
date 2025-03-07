@@ -1,7 +1,7 @@
 const admin = require("firebase-admin");
 
 // Parse the Firebase service key from the environment variable
-const serviceAccount = require("./serviceKey.json");
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_KEY);
 
 // Initialize Firebase Admin SDK
 admin.initializeApp({
