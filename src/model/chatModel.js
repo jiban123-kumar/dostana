@@ -4,10 +4,9 @@ const { Schema } = mongoose;
 const messageSchema = new Schema(
   {
     sender: {
-      _id: { type: Schema.Types.ObjectId, required: true },
-      firstName: String,
-      lastName: String,
-      profileImage: String,
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     text: String,
     media: [
@@ -29,15 +28,14 @@ const chatSchema = new Schema(
   {
     participants: [
       {
-        _id: { type: Schema.Types.ObjectId, required: true },
-        firstName: String,
-        lastName: String,
-        profileImage: String,
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
       },
     ],
     messages: [messageSchema],
-    archived: { type: Boolean, default: false },
-    deletedBy: [Schema.Types.ObjectId],
+    archivedBy: { type: [Schema.Types.ObjectId], default: [] },
+    deletedFor: [Schema.Types.ObjectId],
   },
   {
     timestamps: true,

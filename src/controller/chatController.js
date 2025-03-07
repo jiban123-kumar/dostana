@@ -8,7 +8,8 @@ const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
 const sendMessage = catchAsync(async (req, res, next) => {
   const { recipientId, text } = req.body;
   const senderId = req.user?.id;
-  if (!text.trim() && req.files?.length === 0) {
+
+  if (!text.trim() && (!req.files || req.files.length === 0)) {
     return next(new CustomError("Please provide text or media", 400));
   }
 
@@ -16,24 +17,25 @@ const sendMessage = catchAsync(async (req, res, next) => {
     throw new CustomError("Unauthorized", 401);
   }
 
-  const [sender, recipient] = await Promise.all([User.findById(senderId).select("firstName lastName profileImage"), User.findById(recipientId).select("firstName lastName profileImage")]);
-
+  const recipient = await User.findById(recipientId);
   if (!recipient) {
     throw new CustomError("Recipient not found", 404);
   }
 
   let chat = await Chat.findOne({
-    "participants._id": { $all: [senderId, recipientId] },
+    participants: { $all: [senderId, recipientId] },
   });
 
   if (!chat) {
     chat = await Chat.create({
-      participants: [
-        { _id: sender._id, ...sender.toObject() },
-        { _id: recipient._id, ...recipient.toObject() },
-      ],
+      participants: [senderId, recipientId],
       messages: [],
     });
+  } else {
+    // Remove recipientId from deletedFor if it exists
+    if (chat.deletedFor.includes(recipientId)) {
+      chat.deletedFor = chat.deletedFor.filter((id) => id.toString() !== recipientId);
+    }
   }
 
   let mediaUrls = [];
@@ -55,12 +57,7 @@ const sendMessage = catchAsync(async (req, res, next) => {
     }
 
     const newMessage = {
-      sender: {
-        _id: sender._id,
-        firstName: sender.firstName,
-        lastName: sender.lastName,
-        profileImage: sender.profileImage,
-      },
+      sender: senderId, // Reference to User model
       text,
       media: mediaUrls,
       deletedFor: [],
@@ -69,7 +66,14 @@ const sendMessage = catchAsync(async (req, res, next) => {
     chat.messages.push(newMessage);
     await chat.save();
 
-    const createdMessage = chat.messages[chat.messages.length - 1].toObject();
+    // Populate the sender field in the newly created message
+    await chat.populate({
+      path: "messages.sender",
+      select: "firstName lastName profileImage",
+    });
+
+    const createdMessage = chat.messages[chat.messages.length - 1];
+
     res.status(200).json({
       message: "Message sent successfully",
       newMessage: createdMessage,
@@ -163,38 +167,36 @@ const deletechat = catchAsync(async (req, res, next) => {
   await chat.save();
   res.status(200).json({ message: "Chat deleted for you", chatId });
 });
-
 const getAllChats = catchAsync(async (req, res, next) => {
   const loggedInUserId = req.user.id;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
-
-  // Determine the archive filter based on the query parameter.
-  // If req.query.archive === "true", then archiveFilter will be true;
-  // otherwise (if "false" or not provided), it will be false.
   const archiveFilter = req.query.archive === "true";
-  console.log(archiveFilter);
 
-  // Build the filter object to only return chats for the logged in user
-  // that have exactly 2 participants, that haven't been deleted by the user,
-  // and match the archived state.
+  // Filter chats where the logged-in user is a participant,
+  // the chat is not deleted for that user,
+  // has exactly 2 participants, and archived status based on the user.
   const filter = {
-    "participants._id": loggedInUserId,
-    deletedBy: { $nin: [loggedInUserId] },
+    participants: loggedInUserId,
+    deletedFor: { $nin: [loggedInUserId] },
     $expr: { $eq: [{ $size: "$participants" }, 2] },
-    archived: archiveFilter,
+    archivedBy: archiveFilter ? { $in: [loggedInUserId] } : { $nin: [loggedInUserId] },
   };
 
   const total = await Chat.countDocuments(filter);
 
+  // Populate participants with selected fields.
   const chats = await Chat.find(filter)
+    .populate("participants", "firstName lastName profileImage")
     .sort({ updatedAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
 
   const filteredChats = chats.map((chat) => {
+    // Filter out messages that are deleted for the logged-in user.
     const visibleMessages = chat.messages.filter((msg) => !msg.deletedFor.map(String).includes(loggedInUserId));
     const lastMessage = visibleMessages[visibleMessages.length - 1] || null;
+    // Get the other participant(s) by filtering out the logged-in user.
     const participants = chat.participants.filter((user) => user._id.toString() !== loggedInUserId);
 
     return {
@@ -202,7 +204,8 @@ const getAllChats = catchAsync(async (req, res, next) => {
       participants,
       lastMessage,
       updatedAt: chat.updatedAt,
-      archived: chat.archived,
+      // Archived status per user.
+      archived: chat.archivedBy.includes(loggedInUserId),
     };
   });
 
@@ -227,13 +230,23 @@ const toggleArchiveChat = catchAsync(async (req, res, next) => {
     return res.status(404).json({ message: "Chat not found or you are not a participant" });
   }
 
-  chat.archived = !chat.archived;
+  // Toggle archive for the current user only
+  if (chat.archivedBy.includes(loggedInUserId)) {
+    // Unarchive: remove the user from archivedBy
+    chat.archivedBy = chat.archivedBy.filter((id) => id.toString() !== loggedInUserId);
+  } else {
+    // Archive: add the user to archivedBy
+    chat.archivedBy.push(loggedInUserId);
+  }
+
   await chat.save();
 
+  // Return a boolean indicating whether the chat is now archived for this user
+  const isArchived = chat.archivedBy.includes(loggedInUserId);
   res.status(200).json({
-    message: `Chat ${chat.archived ? "archived" : "unarchived"} successfully`,
+    message: `Chat ${isArchived ? "archived" : "unarchived"} successfully`,
     chatId: chat._id,
-    archived: chat.archived,
+    archived: isArchived,
     recipientId,
   });
 });
@@ -244,28 +257,31 @@ const getChatByUserId = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
 
+  // Find chat between the two users. Since participants are ObjectIds, we use $all.
   let chat = await Chat.findOne({
-    "participants._id": { $all: [loggedInUserId, userId] },
-  });
+    participants: { $all: [loggedInUserId, userId] },
+  }).populate("participants", "firstName lastName profileImage");
 
-  if (chat && chat.deletedBy.includes(loggedInUserId)) {
-    chat.deletedBy = chat.deletedBy.filter((id) => id.toString() !== loggedInUserId);
+  // If chat exists and the logged-in user was marked as having deleted it, remove them from deletedFor.
+  if (chat && chat.deletedFor.includes(loggedInUserId)) {
+    chat.deletedFor = chat.deletedFor.filter((id) => id.toString() !== loggedInUserId);
     await chat.save();
   }
 
+  // If no chat exists, create one with the two user references.
   if (!chat) {
-    const [loggedInUser, otherUser] = await Promise.all([User.findById(loggedInUserId).select("firstName lastName profileImage"), User.findById(userId).select("firstName lastName profileImage")]);
-
+    // No need to embed the user details since participants reference the User model.
     chat = await Chat.create({
-      participants: [
-        { _id: loggedInUser._id, ...loggedInUser.toObject() },
-        { _id: otherUser._id, ...otherUser.toObject() },
-      ],
+      participants: [loggedInUserId, userId],
       messages: [],
-      deletedBy: [],
+      deletedFor: [],
+      archivedBy: [],
     });
+    // Populate participants to include user info.
+    chat = await chat.populate("participants", "firstName lastName profileImage").execPopulate();
   }
 
+  // Filter out messages that were deleted for the logged-in user.
   const visibleMessages = chat.messages.filter((msg) => !msg.deletedFor.map(String).includes(loggedInUserId));
 
   const totalMessages = visibleMessages.length;
@@ -276,7 +292,8 @@ const getChatByUserId = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     chatId: chat._id,
-    archived: chat.archived,
+    archived: chat.archivedBy.includes(loggedInUserId),
+    // Return the other participant's details
     participants: chat.participants.filter((u) => u._id.toString() !== loggedInUserId),
     messages: messagesChunk,
     hasMore,
