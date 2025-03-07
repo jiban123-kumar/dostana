@@ -66,11 +66,11 @@ const sendMessage = catchAsync(async (req, res, next) => {
     chat.messages.push(newMessage);
     await chat.save();
 
-    // Populate the sender field in the newly created message
-    await chat.populate({
-      path: "messages.sender",
-      select: "firstName lastName profileImage",
-    });
+    // // Populate the sender field in the newly created message
+    // await chat.populate({
+    //   path: "messages.sender",
+    //   select: "firstName lastName profileImage",
+    // });
 
     const createdMessage = chat.messages[chat.messages.length - 1];
 
@@ -145,6 +145,7 @@ const deletechat = catchAsync(async (req, res, next) => {
   if (!chat) {
     return next(new CustomError("Chat not found", 404));
   }
+  console.log(chat);
 
   chat.messages.forEach((message) => {
     if (!message.deletedFor.includes(userId)) {
@@ -152,11 +153,11 @@ const deletechat = catchAsync(async (req, res, next) => {
     }
   });
 
-  if (!chat.deletedBy.includes(userId)) {
-    chat.deletedBy.push(userId);
+  if (!chat.deletedFor.includes(userId)) {
+    chat.deletedFor.push(userId);
   }
 
-  if (chat.deletedBy.length === chat.participants.length) {
+  if (chat.deletedFor.length === chat.participants.length) {
     if (chat.messages.length > 0) {
       await Promise.all(chat.messages.flatMap((msg) => msg.media.map((file) => removeFileFromSupabase(file.url))));
     }
@@ -221,10 +222,12 @@ const toggleArchiveChat = catchAsync(async (req, res, next) => {
   const loggedInUserId = req.user.id;
   const { recipientId, chatId } = req.body;
 
+  // Find chat where the logged-in user is one of the participants.
   const chat = await Chat.findOne({
     _id: chatId,
-    "participants._id": loggedInUserId,
+    participants: loggedInUserId,
   });
+  console.log(chat);
 
   if (!chat) {
     return res.status(404).json({ message: "Chat not found or you are not a participant" });
@@ -398,7 +401,11 @@ const markMessagesAsReadByChatId = catchAsync(async (req, res, next) => {
 
   let totalUpdatedCount = 0;
   chat.messages.forEach((message) => {
-    if (messageIds.includes(message._id.toString()) && message.sender._id.toString() !== userId && message.isRead === false) {
+    if (
+      messageIds.includes(message._id.toString()) &&
+      message.sender.toString() !== userId && // changed here to use sender directly
+      message.isRead === false
+    ) {
       totalUpdatedCount++;
     }
   });
@@ -410,7 +417,7 @@ const markMessagesAsReadByChatId = catchAsync(async (req, res, next) => {
       arrayFilters: [
         {
           "elem._id": { $in: messageIds },
-          "elem.sender._id": { $ne: userId },
+          "elem.sender": { $ne: userId }, // use elem.sender directly
           "elem.isRead": false,
         },
       ],

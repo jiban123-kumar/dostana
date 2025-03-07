@@ -4,14 +4,11 @@ dotEnv.config({ path: "./config.env" }); // Load environment variablesconst webp
 // Required modules
 const express = require("express");
 const mongoose = require("mongoose");
-const passport = require("passport");
-const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
 const http = require("http");
 const { Server } = require("socket.io");
-const MongoStore = require("connect-mongo");
 
 // Custom modules (routes, passport strategy, logger, etc.)
 const authRouter = require("./routes/authRoute");
@@ -24,7 +21,6 @@ const chatRouter = require("./routes/chatRoute");
 const googleAuthRouter = require("./routes/googleAuthRoute");
 
 const notificationRouter = require("./routes/notificationRoute");
-const { googleOauthStartegy } = require("./passportStrategy/googleStrategy");
 const jwt = require("jsonwebtoken");
 const User = require("./model/userModel");
 
@@ -46,34 +42,6 @@ app.use(
     methods: ["GET", "POST", "PATCH", "DELETE"],
   })
 );
-
-// Session configuration
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI, // your MongoDB connection URI
-      ttl: 14 * 24 * 60 * 60, // = 14 days. Adjust as needed.
-    }),
-  })
-);
-
-// Initialize Passport and Google OAuth strategy
-googleOauthStartegy();
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Serialize and deserialize user
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
 // ----------------------------------
 // API Routes
 // ----------------------------------
