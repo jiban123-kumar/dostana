@@ -1,15 +1,17 @@
 const admin = require("firebase-admin");
-const serviceAccount = require("./serviceKey.json"); // Path to your Firebase service account JSON
-const User = require("../model/userModel");
 
-// Initialize the Firebase Admin SDK
+// Parse the Firebase service key from the environment variable
+const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_KEY || "{}");
+
+// Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
+const User = require("../model/userModel");
+
 const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
   const baseUrl = `https://${process.env.CLIENT_URL}`;
-
   const url = `${baseUrl}${path}`;
 
   try {
@@ -19,27 +21,17 @@ const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
       console.log("User does not have an FCM token.");
       return;
     }
+
     const fcmToken = user.fcmToken;
     console.log(fcmToken);
 
     const message = {
       token: fcmToken,
-      notification: {
-        title,
-        body,
-      },
-      // Pass additional data (like the URL) in the data payload.
-      data: {
-        url, // This will be available in your service worker.
-      },
-      // Optionally, set webpush options for compatibility.
+      notification: { title, body },
+      data: { url }, // Additional payload for service worker
       webpush: {
-        headers: {
-          Urgency: "high",
-        },
-        fcmOptions: {
-          link: url, // Some clients might use this for click actions.
-        },
+        headers: { Urgency: "high" },
+        fcmOptions: { link: url },
       },
     };
 
