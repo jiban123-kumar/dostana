@@ -68,8 +68,8 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    fcmToken: {
-      type: String,
+    subscription: {
+      type: Object,
       default: null,
     },
   },

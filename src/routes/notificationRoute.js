@@ -48,7 +48,7 @@ router.post("/push-subscription", protect, async (req, res) => {
   try {
     const { subscription } = req.body;
     // Determine update based on whether a subscription is provided
-    await User.findByIdAndUpdate(req.user.id, { fcmToken: subscription }, { new: true });
+    await User.findByIdAndUpdate(req.user.id, { subscription }, { new: true });
     res.status(200).json({
       message: subscription ? "Push subscription saved" : "Push subscription removed",
     });

@@ -1,8 +1,5 @@
 const sharp = require("sharp");
-const ffmpeg = require("fluent-ffmpeg");
 const { supabase } = require("./supabaseConfig");
-const fs = require("fs");
-const path = require("path");
 
 const uploadFileToSupabase = async ({ buffer, originalname, mimetype }) => {
   const bucketName = "dostana"; // Hardcoded Supabase bucket name
@@ -16,48 +13,21 @@ const uploadFileToSupabase = async ({ buffer, originalname, mimetype }) => {
       // Process image using Sharp
       processedBuffer = await sharp(buffer)
         .resize({ width: 800, withoutEnlargement: true }) // Resize to 800px width
-        .toFormat("jpeg", { quality: 80, force: true, alphaQuality: 100, lossless: true, effort: 4 }) // Convert to AVIF format
+        .toFormat("jpeg", { quality: 80, force: true, alphaQuality: 100, lossless: true, effort: 4 })
         .toBuffer();
-
+      // Rename image file to have a new extension (e.g., .avif)
       filePath = `${Date.now()}-${originalname.split(".").slice(0, -1).join(".")}.avif`;
     } else if (isVideo) {
-      // Temporary paths for input and output files
-      const tempInputPath = path.join(__dirname, `temp-${Date.now()}-${originalname}`);
-      const tempOutputPath = path.join(__dirname, `${Date.now()}-${originalname.split(".").slice(0, -1).join(".")}.mp4`);
-
-      // Write the buffer to a temporary file
-      fs.writeFileSync(tempInputPath, buffer);
-
-      // Process video using fluent-ffmpeg
-      await new Promise((resolve, reject) => {
-        ffmpeg(tempInputPath)
-          .outputOptions("-vf", "scale=1280:-2") // Resize to 1280px width, maintain aspect ratio
-          .outputOptions("-b:v", "1M") // Limit bitrate to 1Mbps
-          .outputOptions("-c:v", "libx264") // Use H.264 codec
-          .on("end", () => {
-            resolve();
-          })
-          .on("error", (err) => {
-            reject(new Error(`FFmpeg processing error: ${err.message}`));
-          })
-          .save(tempOutputPath); // Save processed file
-      });
-
-      // Read processed file into a buffer
-      processedBuffer = fs.readFileSync(tempOutputPath);
-
-      filePath = path.basename(tempOutputPath);
-
-      // Clean up temporary files
-      fs.unlinkSync(tempInputPath);
-      fs.unlinkSync(tempOutputPath);
+      // For video files, bypass processing and upload the original buffer
+      processedBuffer = buffer;
+      filePath = `${Date.now()}-${originalname}`;
     } else {
       throw new Error("Unsupported file type");
     }
 
-    // Upload the processed file to Supabase
+    // Upload the file to Supabase Storage
     const { error } = await supabase.storage.from(bucketName).upload(filePath, processedBuffer, {
-      contentType: isImage ? "image/avif" : "video/mp4",
+      contentType: isImage ? "image/avif" : mimetype,
     });
 
     if (error) throw error;

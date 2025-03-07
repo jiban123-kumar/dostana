@@ -15,14 +15,13 @@ const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
   const url = `${baseUrl}${path}`;
 
   try {
-    // Retrieve the user and their push subscription (stored in fcmToken)
-    const user = await User.findById(userId).select("fcmToken");
-    if (!user || !user.fcmToken) {
+    const user = await User.findById(userId).select("subscription");
+    if (!user || !user.subscription) {
       console.log("User does not have an FCM token.");
       return;
     }
 
-    const fcmToken = user.fcmToken;
+    const fcmToken = user.subscription;
     console.log(fcmToken);
 
     // Create the payload as a JSON string
