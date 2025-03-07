@@ -1,21 +1,21 @@
-const admin = require("firebase-admin");
-
-// Parse the Firebase service key from the environment variable
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_KEY);
-
-// Initialize Firebase Admin SDK
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
-
+// notificationController.js
+const webpush = require("web-push");
 const User = require("../model/userModel");
+
+// Configure web-push with your VAPID details from environment variables
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY,
+  privateKey: process.env.VAPID_PRIVATE_KEY,
+};
+
+webpush.setVapidDetails(`mailto:${process.env.VAPID_EMAIL}`, vapidKeys.publicKey, vapidKeys.privateKey);
 
 const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
   const baseUrl = `https://${process.env.CLIENT_URL}`;
   const url = `${baseUrl}${path}`;
 
   try {
-    // Retrieve the user and their FCM token from the database.
+    // Retrieve the user and their push subscription (stored in fcmToken)
     const user = await User.findById(userId).select("fcmToken");
     if (!user || !user.fcmToken) {
       console.log("User does not have an FCM token.");
@@ -25,21 +25,19 @@ const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
     const fcmToken = user.fcmToken;
     console.log(fcmToken);
 
-    const message = {
-      token: fcmToken,
-      notification: { title, body },
-      data: { url }, // Additional payload for service worker
-      webpush: {
-        headers: { Urgency: "high" },
-        fcmOptions: { link: url },
-      },
-    };
+    // Create the payload as a JSON string
+    const payload = JSON.stringify({
+      title,
+      body,
+      data: { url },
+    });
 
-    const response = await admin.messaging().send(message);
-    console.log("Successfully sent FCM message:", response);
+    // Send the notification using web-push
+    const response = await webpush.sendNotification(fcmToken, payload);
+    console.log("Successfully sent web push notification:", response);
     return response;
   } catch (error) {
-    console.error("Error sending FCM message:", error);
+    console.error("Error sending web push notification:", error);
   }
 };
 
