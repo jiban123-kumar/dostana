@@ -13,9 +13,11 @@ webpush.setVapidDetails(`mailto:${process.env.VAPID_EMAIL}`, vapidKeys.publicKey
 const sendPushNotification = async ({ userId, title, body, path = "/" }) => {
   const baseUrl = `https://${process.env.CLIENT_URL}`;
   const url = `${baseUrl}${path}`;
+  console.log(userId, title, body, url);
 
   try {
     const user = await User.findById(userId).select("subscription");
+    console.log(user);
     if (!user || !user.subscription) {
       console.log("User does not have an FCM token.");
       return;
