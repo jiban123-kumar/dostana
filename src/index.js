@@ -35,7 +35,7 @@ app.use(cookieParser());
 app.use(helmet());
 app.use(
   cors({
-    origin: `https://${process.env.CLIENT_URL}`,
+    origin: [`https://${process.env.CLIENT_URL}`, "http://localhost:5173"],
     // origin: "http://localhost:4173",
     credentials: true,
     exposedHeaders: ["X-Total-Count"],
@@ -117,7 +117,7 @@ server.listen(PORT, () => {});
 // Create the Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: `https://${process.env.CLIENT_URL}`,
+    origin: [`https://${process.env.CLIENT_URL}`, "http://localhost:5173"],
     // origin: "http://localhost:4173",
     credentials: true,
   },
