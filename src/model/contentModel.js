@@ -11,14 +11,13 @@ const contentSchema = new mongoose.Schema(
       type: String, // For tweets or post descriptions
       trim: true,
     },
-    mediaUrl: {
-      type: [String], // Array of strings for media URLs
-    },
-    mediaType: {
-      type: String,
-      enum: ["image", "video"],
-      default: "image",
-    },
+    media: [
+      {
+        url: { type: String, required: true },
+        type: { type: String, enum: ["image", "video"], required: true },
+      },
+    ],
+
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

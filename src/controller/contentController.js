@@ -60,43 +60,53 @@ const addReactionDetails = async (contents, loggedUserId) => {
  * Returns the newly created content as a single object under "content".
  */
 const createContent = catchAsync(async (req, res, next) => {
-  const { type, caption, mediaType } = req.body;
+  const { type, caption } = req.body;
   const user = await User.findById(req.user?.id);
   if (!user) return next(new CustomError("User not found", 404));
-  console.log(type, caption, mediaType);
 
+  // Validate content type
   if (!["thought", "post"].includes(type)) return next(new CustomError("Invalid content type", 400));
 
-  const mediaUrls = [];
+  // Handle media uploads
+  const media = [];
   if (req.files && req.files.length > 0) {
     for (const file of req.files) {
       const { buffer, originalname, mimetype } = file;
       const result = await uploadFileToSupabase({ buffer, originalname, mimetype });
+
       if (result.isError) {
         return next(new CustomError(`Failed to upload file: ${result.message}`, 500));
       }
-      mediaUrls.push(result.fileUrl);
+
+      // Push media object like { url, type }
+      media.push({
+        url: result.fileUrl,
+        type: mimetype.startsWith("image/") ? "image" : "video",
+      });
     }
   }
 
+  // Create new content
   const newContent = await Content.create({
     type,
     caption,
-    mediaUrl: mediaUrls,
+    media, // Using new consistent media structure
     user: user._id,
-    mediaType,
   });
+
+  // Populate user details
   await newContent.populate("user", "profileImage firstName lastName");
 
-  // Convert to plain object and remove unwanted fields.
+  // Convert to plain object and exclude unwanted fields
   let contentObj = newContent.toObject();
   delete contentObj.savedBy;
   delete contentObj.sharedBy;
   delete contentObj.sharedWith;
 
-  // Add reaction details.
+  // Add reaction details (if you have any reaction logic)
   await addReactionDetails([contentObj], req.user.id);
 
+  // Send response
   res.status(200).json({
     message: `${type.charAt(0).toUpperCase() + type.slice(1)} created successfully`,
     content: contentObj,
