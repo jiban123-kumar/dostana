@@ -7,7 +7,7 @@ const { removeFileFromSupabase } = require("../utilsFunction/fileRemover");
 const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 const sendMessage = catchAsync(async (req, res, next) => {
-  const { recipientId, text } = req.body;
+  const { recipientId, text, clientId } = req.body;
   const senderId = req.user?.id;
 
   if (!text.trim() && (!req.files || req.files.length === 0)) {
@@ -82,6 +82,7 @@ const sendMessage = catchAsync(async (req, res, next) => {
       newMessage: createdMessage,
       recipientId,
       chatId: chat._id,
+      clientId,
     });
   } catch (err) {
     if (mediaUrls.length > 0) {
