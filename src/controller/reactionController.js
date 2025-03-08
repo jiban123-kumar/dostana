@@ -44,7 +44,7 @@ const toggleReaction = catchAsync(async (req, res, next) => {
     sendPushNotification({
       body: `${existingReaction.user.firstName} reacted to your ${content.type}`,
       path: `/content/${contentId}`,
-      userId: content.user,
+      userId,
       title: "Dostana",
     });
     return res.status(200).json({

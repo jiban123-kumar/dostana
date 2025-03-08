@@ -10,6 +10,10 @@ const helmet = require("helmet");
 const http = require("http");
 const { Server } = require("socket.io");
 
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
 // Custom modules (routes, passport strategy, logger, etc.)
 const authRouter = require("./routes/authRoute");
 const profileRouter = require("./routes/profileRoute");
