@@ -1,8 +1,6 @@
-const Content = require("../model/contentModel");
 const Reaction = require("../model/reactionModel");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
-const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 /**
  * Toggle a reaction for a given content.
@@ -40,13 +38,7 @@ const toggleReaction = catchAsync(async (req, res, next) => {
     }
     existingReaction.type = type;
     await existingReaction.save();
-    const content = await Content.findById(contentId);
-    sendPushNotification({
-      body: `${existingReaction.user.firstName} reacted to your ${content.type}`,
-      path: `/content/${contentId}`,
-      userId,
-      title: "Dostana",
-    });
+
     return res.status(200).json({
       message: `Updated reaction to ${type}`,
       reactionDetails: {

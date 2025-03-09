@@ -22,12 +22,7 @@ const sendFriendRequest = catchAsync(async (req, res, next) => {
 
   // Create (or update) a friend request
   const friendRequest = await Friend.findOneAndUpdate({ requester: requesterId, recipient: recipientId }, { status: "pending" }, { new: true, upsert: true });
-  sendPushNotification({
-    body: "You have a new friend request",
-    path: `/user-profile/${requesterId}`,
-    userId: recipientId,
-    title: "Dostana",
-  });
+
   res.status(200).json({
     message: "Friend request sent successfully",
     friendRequest,
@@ -49,12 +44,6 @@ const acceptFriendRequest = catchAsync(async (req, res, next) => {
   friendRequest.status = "accepted";
   await friendRequest.save();
   const recipient = friendRequest.recipient;
-  sendPushNotification({
-    body: `${recipient.firstName + " " + recipient.lastName} accepted your friend request`,
-    path: `/user-profile/${req.user?.id}`,
-    userId: requesterId,
-    title: "Dostana",
-  });
 
   res.status(200).json({
     message: "Friend request accepted successfully",
@@ -366,17 +355,6 @@ const manageFriendRequests = catchAsync(async (req, res, next) => {
       status: "accepted",
       _id: { $in: affectedRequests.map((r) => r._id) },
     }).populate("requester recipient", "firstName lastName profileImage");
-
-    affectedRequests.forEach((friendRequest) => {
-      const recipient = friendRequest.recipient; // Logged-in user who accepted the requests
-      const requester = friendRequest.requester;
-      sendPushNotification({
-        body: `${recipient.firstName} ${recipient.lastName} accepted your friend request`,
-        path: `/user-profile/${recipient._id}`, // You may adjust this URL as needed
-        userId: requester._id,
-        title: "Dostana",
-      });
-    });
 
     message = "All friend requests accepted successfully";
   } else if (action === "cancel_all") {

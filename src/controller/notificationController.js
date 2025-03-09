@@ -2,6 +2,7 @@ const Notification = require("../model/notificationModel");
 const User = require("../model/userModel");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
+const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 /**
  * Create a notification.
@@ -15,19 +16,15 @@ const createNotification = catchAsync(async (req, res, next) => {
   }
 
   // Avoid self-notifications for specific types
-  if (type === "content-comment" || type === "content-reaction") {
-    if (userId === senderId) {
-      return res.status(200).json({});
-    }
+  if ((type === "content-comment" || type === "content-reaction") && userId === senderId) {
+    return res.status(200).json({});
   }
 
   // Add a new notification detail to the user's notifications document
   const notification = await Notification.findOneAndUpdate(
     { user: userId },
     {
-      $push: {
-        details: { sender: senderId, type, action, referenceId },
-      },
+      $push: { details: { sender: senderId, type, action, referenceId } },
     },
     { upsert: true, new: true }
   );
@@ -35,13 +32,48 @@ const createNotification = catchAsync(async (req, res, next) => {
   // Populate sender details (e.g., firstName, lastName, profileImage)
   await notification.populate("details.sender", "firstName lastName profileImage");
 
-  // Convert to plain object
+  // Convert to plain object and sort the details by createdAt descending
   const notificationObj = notification.toObject();
-
-  // Sort details descending by createdAt to get the most recent notification detail
   const sortedDetails = notificationObj.details.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
   const newNotificationDetail = sortedDetails[0];
+
+  // Define push notification content and dynamic path based on notification type
+  let title = "Notification";
+  let body = "You have a new notification.";
+  let path = "/"; // default path
+  switch (type) {
+    case "friend_request_sent":
+      title = "Friend Request";
+      body = `${sender.firstName} sent you a friend request.`;
+      path = "/friend-requests";
+      break;
+    case "friend_request_accepted":
+      title = "Friend Request Accepted";
+      body = `${sender.firstName} accepted your friend request.`;
+      path = "/friends";
+      break;
+    case "content-reaction":
+      title = "New Reaction";
+      body = `${sender.firstName} reacted to your content.`;
+      // Direct user to view the content where the reaction was made
+      path = `/home/content/${referenceId}`;
+      break;
+    case "content-share":
+      title = "Content Shared";
+      body = `${sender.firstName} shared your content.`;
+      path = "/shared-feed";
+      break;
+    case "content-comment":
+      title = "New Comment";
+      body = `${sender.firstName} commented on your content.`;
+      path = `/home/content/${referenceId}`;
+      break;
+    default:
+      break;
+  }
+
+  // Send the push notification with the dynamic path
+  await sendPushNotification({ userId, title, body, path });
 
   res.status(201).json({
     message: "Notification created successfully",

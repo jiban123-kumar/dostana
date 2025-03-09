@@ -71,7 +71,7 @@ const sendMessage = catchAsync(async (req, res, next) => {
     sendPushNotification({
       userId: recipientId,
       title: "Dostana",
-      body: `You have a new message from ${userName.firstName}`,
+      body: `You have a new message from ${userName.firstName + " " + userName.lastName}`,
       path: `/chats`,
     });
 

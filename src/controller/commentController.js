@@ -3,7 +3,6 @@ const Comment = require("../model/commentModel");
 const Content = require("../model/contentModel");
 const catchAsync = require("../utilsFunction/catchAsync");
 const CustomError = require("../utilsFunction/customError");
-const { sendPushNotification } = require("../utilsFunction/sendPushNotification");
 
 // Create a comment
 const createComment = catchAsync(async (req, res, next) => {
@@ -20,13 +19,6 @@ const createComment = catchAsync(async (req, res, next) => {
     user: req.user?.id,
   });
   await newComment.populate("user", "profileImage firstName lastName");
-
-  sendPushNotification({
-    title: "Dostana",
-    body: `${newComment.user.firstName} commented on your ${content.type}`,
-    path: `/content/${contentId}`,
-    userId: content.user,
-  });
 
   res.status(201).json({
     message: "Comment created successfully",
