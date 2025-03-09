@@ -11,18 +11,18 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 // Custom modules (routes, passport strategy, logger, etc.)
-const authRouter = require("./routes/authRoute");
-const profileRouter = require("./routes/profileRoute");
-const reactionRouter = require("./routes/reactionRoute");
-const contentRouter = require("./routes/contentRoute");
-const commentRouter = require("./routes/commentRoute");
-const friendRouter = require("./routes/friendRoute");
-const chatRouter = require("./routes/chatRoute");
-const googleAuthRouter = require("./routes/googleAuthRoute");
+const authRouter = require("../src/routes/authRoute");
+const profileRouter = require("../src/routes/profileRoute");
+const reactionRouter = require("../src/routes/reactionRoute");
+const contentRouter = require("../src/routes/contentRoute");
+const commentRouter = require("../src/routes/commentRoute");
+const friendRouter = require("../src/routes/friendRoute");
+const chatRouter = require("../src/routes/chatRoute");
+const googleAuthRouter = require("../src/routes/googleAuthRoute");
 
-const notificationRouter = require("./routes/notificationRoute");
+const notificationRouter = require("../src/routes/notificationRoute");
 const jwt = require("jsonwebtoken");
-const User = require("./model/userModel");
+const User = require("../src/model/userModel");
 
 // Configurations
 const app = express();
@@ -128,4 +128,4 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-require("./socketHandler")(io);
+require("../src/socketHandler")(io);
