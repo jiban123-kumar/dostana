@@ -309,7 +309,7 @@ const getChatByUserId = catchAsync(async (req, res, next) => {
 
 const getTotalUnreadMessages = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
-  const chats = await Chat.find({ "participants._id": { $in: [userId] } });
+  const chats = await Chat.find({ participants: { $in: [userId] } });
   let totalUnread = 0;
 
   chats.forEach((chat) => {
