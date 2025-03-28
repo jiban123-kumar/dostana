@@ -160,6 +160,7 @@ const resetPassword = catchAsync(async (req, res, next) => {
 });
 const logoutUser = catchAsync(async (req, res, next) => {
   // Clear authentication token cookie
+  await User.findByIdAndUpdate(req.user?.id, { subscription: null });
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
